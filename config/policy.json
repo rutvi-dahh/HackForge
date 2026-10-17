@@ -1,0 +1,64 @@
+{
+  "upload_window_days": 15,
+  "confidence_threshold": 0.7,
+  "banned_confidence_threshold": 0.7,
+  "rounding_tolerance": {
+    "min_inr": 1.0,
+    "percent": 0.01
+  },
+  "banned": [
+    "alcohol",
+    "tobacco",
+    "fine",
+    "personal",
+    "gift",
+    "gambling"
+  ],
+  "required": {
+    "food": ["attendees"],
+    "client_related": ["client_name"],
+    "receipt": ["issue_date", "total", "unique_id"]
+  },
+  "limits": {
+    "food_trip": {
+      "per_person_meal": {
+        "A": 800,
+        "B": 600,
+        "C": 500
+      },
+      "per_person_day": {
+        "A": 2000,
+        "B": 1500,
+        "C": 1200
+      }
+    },
+    "food_office": {
+      "per_person_meal": 400,
+      "per_person_day": 800
+    },
+    "accommodation": {
+      "per_night": {
+        "A": 7000,
+        "B": 4500,
+        "C": 3000
+      }
+    },
+    "travel": {
+      "per_receipt": 10000
+    },
+    "equipment": {
+      "per_receipt": 10000
+    },
+    "misc": {
+      "per_receipt": 2000,
+      "per_day": 3000
+    },
+    "monthly": {
+      "Food": 15000,
+      "Accommodation": 40000,
+      "Travel": 30000,
+      "Equipment": 25000,
+      "Miscellaneous": 5000
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "categories": [
+    "Food",
+    "Travel",
+    "Accommodation",
+    "Equipment",
+    "Miscellaneous"
+  ],
+  "sample_data_mapping": {
+    "Furniture": "Equipment",
+    "Technology": "Equipment",
+    "Office Supplies": "Miscellaneous"
+  }
+}
