@@ -17,9 +17,17 @@ def get_db(db_path=None):
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
-def init_db(db_path=None):
-    path = db_path or get_db_path()
-    conn = sqlite3.connect(path)
+def init_db(db_or_path=None):
+    if isinstance(db_or_path, sqlite3.Connection):
+        conn = db_or_path
+        should_close = False
+    else:
+        path = db_or_path or get_db_path()
+        conn = sqlite3.connect(path)
+        should_close = True
+        
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
     
@@ -35,7 +43,8 @@ def init_db(db_path=None):
         pass
 
     conn.commit()
-    conn.close()
+    if should_close:
+        conn.close()
 
 def load_json_config(filename):
     config_path = BASE_DIR / "config" / filename
@@ -58,10 +67,16 @@ def get_setting(key, default=None, db=None):
     if db is None:
         db = get_db()
         close_db = True
-    row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-    if close_db:
-        db.close()
-    return row["value"] if row else default
+    try:
+        row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        if row:
+            return row["value"]
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        if close_db:
+            db.close()
+    return default
 
 def set_setting(key, value, db=None):
     close_db = False
@@ -81,9 +96,21 @@ def get_fx_rate(currency, db=None):
     if db is None:
         db = get_db()
         close_db = True
-    row = db.execute("SELECT rate_to_inr, set_date FROM fx_rates WHERE currency = ?", (currency.upper(),)).fetchone()
-    if close_db:
-        db.close()
-    if row:
-        return float(row["rate_to_inr"]), row["set_date"]
-    return None, None
+    curr_upper = (currency or "").upper()
+    try:
+        row = db.execute("SELECT rate_to_inr, set_date FROM fx_rates WHERE currency = ?", (curr_upper,)).fetchone()
+        if row:
+            return float(row["rate_to_inr"]), row["set_date"]
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        if close_db:
+            db.close()
+
+    # Built-in static fallbacks from policy
+    static_defaults = {
+        "INR": (1.0, "2026-10-17"),
+        "MYR": (23.4, "2026-10-17"),
+        "USD": (96.5, "2026-10-17")
+    }
+    return static_defaults.get(curr_upper, (None, None))
