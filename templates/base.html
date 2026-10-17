@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Receipt Graveyard{% endblock %} - Expense Reimbursement</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="{{ url_for('index') }}" class="nav-brand">
+      <div class="brand-icon">🪦</div>
+      <span>Receipt Graveyard</span>
+    </a>
+
+    <ul class="nav-links">
+      {% if session.get('user_id') %}
+        {% if session.get('role') == 'admin' %}
+          <li><a href="{{ url_for('admin_queue') }}" class="{% if request.endpoint == 'admin_queue' %}active{% endif %}">Review Queue</a></li>
+          <li><a href="{{ url_for('admin_rejected_queries') }}" class="{% if request.endpoint == 'admin_rejected_queries' %}active{% endif %}">Rejected & Queries</a></li>
+          <li><a href="{{ url_for('admin_settings') }}" class="{% if request.endpoint == 'admin_settings' %}active{% endif %}">Settings & FX</a></li>
+          <li><a href="{{ url_for('admin_export_csv') }}" class="btn btn-sm btn-secondary">Export CSV</a></li>
+        {% else %}
+          <li><a href="{{ url_for('upload_receipt') }}" class="{% if request.endpoint == 'upload_receipt' %}active{% endif %}">Upload Receipt</a></li>
+          <li><a href="{{ url_for('employee_receipts') }}" class="{% if request.endpoint == 'employee_receipts' %}active{% endif %}">My Claims</a></li>
+        {% endif %}
+        <li><a href="{{ url_for('policy_page') }}" class="{% if request.endpoint == 'policy_page' %}active{% endif %}">Policy</a></li>
+        <li><a href="{{ url_for('help_page') }}" class="{% if request.endpoint == 'help_page' %}active{% endif %}">Help</a></li>
+      {% else %}
+        <li><a href="{{ url_for('policy_page') }}">Policy</a></li>
+        <li><a href="{{ url_for('help_page') }}">Help</a></li>
+        <li><a href="{{ url_for('login') }}" class="btn btn-sm btn-primary">Login</a></li>
+      {% endif %}
+    </ul>
+
+    {% if session.get('user_id') %}
+      <div class="user-badge">
+        <span class="role-tag role-{{ session.get('role') }}">{{ session.get('role') }}</span>
+        <span>{{ session.get('name') }} ({{ session.get('employee_code') }})</span>
+        <a href="{{ url_for('logout') }}" style="color: var(--status-rejected-text); margin-left: 0.5rem; text-decoration: none; font-weight: 600;">Sign out</a>
+      </div>
+    {% endif %}
+  </nav>
+
+  <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div>
+      Receipt Graveyard &copy; 2026. Built with Python Flask, Groq Vision, and strict policy rule execution.
+    </div>
+    <div style="margin-top: 0.4rem;">
+      <a href="{{ url_for('policy_page') }}">Policy v3</a> &bull;
+      <a href="{{ url_for('help_page') }}">Help Desk & Guidelines</a>
+    </div>
+  </footer>
+</body>
+</html>

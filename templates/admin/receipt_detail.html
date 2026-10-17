@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Review Receipt #{{ receipt.id }} - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+      <h1 class="page-title">Review Receipt #{{ receipt.id }}</h1>
+      <span class="badge badge-{{ receipt.status }}">
+        {{ receipt.status | capitalize }}
+      </span>
+      {% if receipt.dup_group_id %}
+        <span class="badge badge-flagged">
+          Cluster: {{ receipt.dup_group_id }}
+        </span>
+      {% endif %}
+    </div>
+    <p class="page-subtitle">Submitted by <strong>{{ receipt.user_name }}</strong> ({{ receipt.employee_code }}) &bull; Uploaded {{ receipt.uploaded_at }}</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem;">
+    <a href="{{ url_for('admin_queue') }}" class="btn btn-secondary">&larr; Back to Queue</a>
+    <a href="{{ url_for('view_receipt_file', receipt_id=receipt.id) }}" target="_blank" class="btn btn-primary">
+      👁 View Original Receipt File
+    </a>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <!-- Left Column: Receipt Data & Approval Form -->
+  <div>
+    <div class="card">
+      <h3 style="font-size: 1.15rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        Receipt Attributes
+      </h3>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+        <div>
+          <div class="form-text">Employee</div>
+          <div style="font-weight: 600;">{{ receipt.user_name }} ({{ receipt.employee_code }})</div>
+        </div>
+        <div>
+          <div class="form-text">Issue Date</div>
+          <div style="font-weight: 600;">{{ receipt.issue_date or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Unique Bill/Invoice #</div>
+          <div style="font-weight: 600;">{{ receipt.unique_id or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Location & Tier</div>
+          <div style="font-weight: 600;">{{ receipt.city or '—' }} (Tier {{ receipt.tier or 'C' }})</div>
+        </div>
+        <div>
+          <div class="form-text">Context & Attendees</div>
+          <div style="font-weight: 600;">{{ receipt.context }} &bull; {{ receipt.attendees or 1 }} attendee(s)</div>
+        </div>
+        {% if receipt.is_client_related %}
+          <div>
+            <div class="form-text">Client Organization</div>
+            <div style="font-weight: 600;">{{ receipt.client_name or '—' }}</div>
+          </div>
+        {% endif %}
+        <div>
+          <div class="form-text">User Stated Category</div>
+          <div style="font-weight: 600;">{{ receipt.category_user }}</div>
+        </div>
+        <div>
+          <div class="form-text">Model Detected Category</div>
+          <div style="font-weight: 600; color: #818cf8;">{{ receipt.category_model or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Original Stated Total</div>
+          <div style="font-weight: 600;">{{ "{:,.2f}".format(receipt.amount_original or 0.0) }} {{ receipt.currency }}</div>
+        </div>
+        <div>
+          <div class="form-text">Converted Base Amount</div>
+          <div style="font-weight: 700; color: #34d399; font-size: 1.15rem;">
+            ₹{{ "{:,.2f}".format(receipt.amount_base or 0.0) }} INR
+          </div>
+          {% if receipt.currency and receipt.currency != 'INR' %}
+            <div class="form-text">FX Rate: ₹{{ receipt.fx_rate }} / {{ receipt.currency }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Line items -->
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-muted);">Extracted Line Items</h4>
+      {% if items and items|length > 0 %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Qty</th>
+                <th style="text-align: right;">Amount</th>
+                <th>Category Tag</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for itm in items %}
+                <tr>
+                  <td>{{ itm.name }}</td>
+                  <td>{{ itm.qty or 1 }}</td>
+                  <td style="text-align: right; font-weight: 600;">{{ "{:,.2f}".format(itm.amount or 0.0) }}</td>
+                  <td>
+                    {% if itm.banned_match %}
+                      <span class="badge badge-rejected">{{ itm.banned_match }}</span>
+                    {% else %}
+                      <span style="color: var(--text-dim); font-size: 0.8rem;">Eligible</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="background: rgba(0,0,0,0.2); padding: 0.85rem; border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--text-dim);">
+          No individual itemized lines detected.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Admin Decision Form -->
+    <div class="card" style="border: 1px solid var(--primary-glow); background: rgba(99, 102, 241, 0.03);">
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem; color: #fff;">
+        Administrator Decision
+      </h3>
+      <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+        Every approval or denial requires a non-empty written reason that will be logged in the permanent audit trail.
+      </p>
+
+      <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}">
+        <div class="form-group">
+          <label class="form-label" for="category_override">Admin Category Override (Optional)</label>
+          <select id="category_override" name="category_override" class="form-control">
+            <option value="">Keep User Category ({{ receipt.category_user }})</option>
+            <option value="Food">Override to: Food</option>
+            <option value="Travel">Override to: Travel</option>
+            <option value="Accommodation">Override to: Accommodation</option>
+            <option value="Equipment">Override to: Equipment</option>
+            <option value="Miscellaneous">Override to: Miscellaneous</option>
+          </select>
+          <div class="form-text">You may reclassify this expense if the employee incorrectly categorized it.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="reason">Written Decision Reason <span style="color: #f43f5e;">*</span></label>
+          <textarea id="reason" name="reason" class="form-control" rows="3" required placeholder="Mandatory explanation for approval or denial..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+          <button type="submit" name="decision" value="approved" class="btn btn-success" style="flex: 1;">
+            ✓ Approve Claim
+          </button>
+          <button type="submit" name="decision" value="denied" class="btn btn-danger" style="flex: 1;">
+            ✕ Deny Claim
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right Column: Flags Panel & Audit Trail -->
+  <div>
+    <div class="card" style="position: sticky; top: 5rem;">
+      <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>Flagged Reasons</span>
+        <span class="badge badge-flagged">{{ flags|length }}</span>
+      </h3>
+
+      {% if flags and flags|length > 0 %}
+        {% for flag in flags %}
+          <div class="flag-card">
+            <div class="flag-header">
+              <span>{{ flag.code }}</span>
+              <span class="flag-clause">{{ flag.clause }}</span>
+            </div>
+            <div class="flag-message">{{ flag.message }}</div>
+            {% if flag.amount_affected %}
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.35rem;">
+                Amount affected: ₹{{ "{:,.2f}".format(flag.amount_affected) }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid var(--status-verified-border); border-radius: var(--radius-sm); padding: 1rem;">
+          <span style="color: #34d399; font-weight: 600; font-size: 0.9rem;">✓ Clean Claim</span>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+            No rule warnings or limits were triggered. Verified for standard reimbursement.
+          </p>
+        </div>
+      {% endif %}
+
+      {% if decisions and decisions|length > 0 %}
+        <div style="margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border-subtle);">
+          <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem;">Decision History</h4>
+          {% for d in decisions %}
+            <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem; font-size: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span class="badge badge-{{ d.decision }}">{{ d.decision | upper }}</span>
+                <span class="form-text">{{ d.created_at }}</span>
+              </div>
+              <div style="color: #fff; margin-top: 0.25rem;">"{{ d.reason }}"</div>
+              <div class="form-text">By Admin #{{ d.admin_id }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

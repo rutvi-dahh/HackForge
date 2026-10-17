@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Help Desk & Guidelines - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Help Desk & Claim Guidelines</h1>
+    <p class="page-subtitle">Official step-by-step guide to corporate expense reimbursements</p>
+  </div>
+  <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); padding: 0.6rem 1.25rem; border-radius: var(--radius-md); text-align: right;">
+    <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700;">Employee Support Helpline</div>
+    <div style="font-size: 1.15rem; font-weight: 700; color: #818cf8;">{{ helpline_number }}</div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+  <div>
+    <div class="card">
+      <h2 style="font-size: 1.3rem; margin-bottom: 1.25rem; color: #fff;">
+        Step-by-Step Reimbursement Guide
+      </h2>
+
+      <div style="margin-bottom: 1.75rem;">
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          1. 15-Day Submission Window
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">
+          Receipts must be uploaded within <strong>15 days</strong> of their printed issue date. Day 15 is valid. Receipts uploaded on day 16 or later are automatically rejected by the policy engine without exception.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.75rem;">
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          2. Required Receipt Data
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">
+          Our AI model scans documents for: <strong>Issue Date</strong>, <strong>Total Amount & Currency</strong>, and <strong>Unique Invoice/Bill Number</strong>.
+          If any of these fields are illegible or low-confidence, your claim status becomes <em>"Info needed"</em>. You will simply fill in the missing fields to re-evaluate the claim without penalty.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.75rem;">
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          3. Mandatory Employee Inputs
+        </h3>
+        <ul style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.6; margin-left: 1.25rem;">
+          <li><strong>Category & Context:</strong> Select from Food, Travel, Accommodation, Equipment, or Miscellaneous; and specify Trip or Office context.</li>
+          <li><strong>Attendee Count:</strong> Mandatory for all Food claims (must be an integer &ge; 1). Meal limits are calculated per person.</li>
+          <li><strong>Client Name:</strong> Required if the expense is flagged as client-related.</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 1.75rem;">
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          4. Strictly Prohibited Goods (Auto-Rejection)
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">
+          Alcohol, tobacco, fines/penalties, personal clothing/care items, personal gifts, and gambling are strictly non-reimbursable. If a receipt contains any prohibited item, the <strong>entire receipt is rejected whole</strong>. Mixed receipts cannot be split.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 1.75rem;">
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          5. Spending Limits Flagging
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">
+          Exceeding a spending limit (per-receipt, daily, or monthly category allowance) <strong>NEVER</strong> automatically rejects your claim. Instead, the claim is <em>Flagged</em> and forwarded to your administrator with the exact mathematical calculation so they can evaluate the business necessity.
+        </p>
+      </div>
+
+      <div>
+        <h3 style="font-size: 1.05rem; color: #818cf8; margin-bottom: 0.4rem;">
+          6. Clarification Query on Rejections
+        </h3>
+        <p style="color: var(--text-muted); font-size: 0.92rem; line-height: 1.5;">
+          If your receipt is auto-rejected, you cannot resubmit the file (it will be caught as a duplicate). However, you have the right to submit <strong>exactly one clarification query</strong> directly to the finance admin. If the admin overturns the rejection, your receipt immediately becomes <em>Approved</em>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Claim Status Legend</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div>
+          <span class="badge badge-verified">✓ Verified</span>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">All policy checks passed. Ready for approval.</p>
+        </div>
+        <div>
+          <span class="badge badge-flagged">⚠ Flagged</span>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">One or more limits or warnings recorded for admin discretion.</p>
+        </div>
+        <div>
+          <span class="badge badge-info_needed">ℹ Info Needed</span>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Unclear document scan or missing input. Needs employee clarification.</p>
+        </div>
+        <div>
+          <span class="badge badge-rejected">✕ Rejected</span>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Banned item or late submission (>15 days). Single query permitted.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 1.5rem;">
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem;">Need More Information?</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Review the full spending limits matrix, city tier registries, and currency conversion tables:
+      </p>
+      <a href="{{ url_for('policy_page') }}" class="btn btn-secondary" style="width: 100%;">
+        View Policy Document & Limits &rarr;
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

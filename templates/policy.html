@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Company Policy - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Expense Reimbursement Policy (v3)</h1>
+    <p class="page-subtitle">Standard corporate expense limits, city tiers, and compliance rules</p>
+  </div>
+</div>
+
+<!-- Section: Spending limits -->
+<div class="card">
+  <h2 style="font-size: 1.25rem; margin-bottom: 1.25rem;">1. City-Based Spending Limits (Trip Context)</h2>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Category & Limit Type</th>
+          <th style="text-align: right;">Tier A (Metros)</th>
+          <th style="text-align: right;">Tier B (Major Cities)</th>
+          <th style="text-align: right;">Tier C (Other Locations)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Food:</strong> Per Person Per Meal</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_meal.A) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_meal.B) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_meal.C) }}</td>
+        </tr>
+        <tr>
+          <td><strong>Food:</strong> Per Person Per Day</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_day.A) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_day.B) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_trip.per_person_day.C) }}</td>
+        </tr>
+        <tr>
+          <td><strong>Accommodation:</strong> Per Room Per Night</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.accommodation.per_night.A) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.accommodation.per_night.B) }}</td>
+          <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.accommodation.per_night.C) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+  <!-- Section: Flat limits -->
+  <div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1.25rem;">2. Office Context & Receipt Limits</h2>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Limit Scope</th>
+            <th style="text-align: right;">Maximum Limit (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Food (Office Context, Per Person Meal)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_office.per_person_meal) }}</td>
+          </tr>
+          <tr>
+            <td>Food (Office Context, Per Person Daily)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.food_office.per_person_day) }}</td>
+          </tr>
+          <tr>
+            <td>Travel (Per Receipt)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.travel.per_receipt) }}</td>
+          </tr>
+          <tr>
+            <td>Equipment (Per Receipt)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.equipment.per_receipt) }}</td>
+          </tr>
+          <tr>
+            <td>Miscellaneous (Per Receipt)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.misc.per_receipt) }}</td>
+          </tr>
+          <tr>
+            <td>Miscellaneous (Per Day)</td>
+            <td style="text-align: right; font-weight: 600;">₹{{ "{:,}".format(policy.limits.misc.per_day) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section: Monthly cumulative limits -->
+  <div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1.25rem;">3. Monthly Category Limits</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+      Cumulative allowances per employee per calendar month of issue date:
+    </p>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th style="text-align: right;">Monthly Allowance (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat, amt in policy.limits.monthly.items() %}
+            <tr>
+              <td><strong>{{ cat }}</strong></td>
+              <td style="text-align: right; font-weight: 600; color: #818cf8;">₹{{ "{:,}".format(amt) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Banned items & City Tiers -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem;">
+  <div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem; color: #fb7185;">4. Prohibited Items (Hard Rejection)</h2>
+    <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+      Any receipt containing one or more of the following goods is rejected whole:
+    </p>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      {% for b in policy.banned %}
+        <span class="badge badge-rejected" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;">
+          ✕ {{ b | capitalize }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">5. Submission Constraints</h2>
+    <ul style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.7; margin-left: 1.25rem;">
+      <li><strong>Submission Deadline:</strong> Upload within <strong>{{ policy.upload_window_days }} days</strong> of issue date.</li>
+      <li><strong>Math Discrepancy Tolerance:</strong> Maximum of <strong>₹{{ policy.rounding_tolerance.min_inr }}</strong> or <strong>{{ "%.0f"|format(policy.rounding_tolerance.percent * 100) }}%</strong>.</li>
+      <li><strong>Currency Standard:</strong> Default base currency is INR. Other currencies convert via static table.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

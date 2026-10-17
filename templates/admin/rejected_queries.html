@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Rejected Receipts & Queries - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Rejected Claims & Employee Queries</h1>
+    <p class="page-subtitle">Review automatically rejected claims and respond to employee clarification queries</p>
+  </div>
+</div>
+
+<!-- Active Employee Queries Section -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff;">
+      Active Clarification Queries ({{ queries|length }})
+    </h2>
+    <span class="form-text">Single message & reply resolution per receipt</span>
+  </div>
+
+  {% if queries and queries|length > 0 %}
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+      {% for q in queries %}
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-weight: 700; font-size: 1.05rem;">Receipt #{{ q.receipt_id }}</span>
+                <span class="badge badge-{{ 'verified' if q.status == 'overturned' else ('rejected' if q.status == 'upheld' else 'flagged') }}">
+                  Query Status: {{ q.status | capitalize }}
+                </span>
+                <span class="badge badge-rejected">Claim Status: {{ q.receipt_status | capitalize }}</span>
+              </div>
+              <div class="form-text" style="margin-top: 0.25rem;">
+                Submitted by <strong>{{ q.user_name }}</strong> ({{ q.employee_code }}) &bull; {{ q.created_at }}
+              </div>
+            </div>
+            <div>
+              <a href="{{ url_for('view_receipt_file', receipt_id=q.receipt_id) }}" target="_blank" class="btn btn-sm btn-secondary">
+                👁 View File
+              </a>
+            </div>
+          </div>
+
+          <!-- Receipt basic info -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.88rem;">
+            <div><strong>Merchant:</strong> {{ q.merchant or '—' }}</div>
+            <div><strong>Date:</strong> {{ q.issue_date or '—' }}</div>
+            <div><strong>Category:</strong> {{ q.category_user }}</div>
+            <div><strong>Amount:</strong> ₹{{ "{:,.2f}".format(q.amount_base or 0.0) }} INR</div>
+          </div>
+
+          <!-- Employee Message -->
+          <div style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid var(--primary); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">
+              Employee Clarification Message:
+            </div>
+            <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">
+              "{{ q.message }}"
+            </div>
+          </div>
+
+          {% if q.status == 'open' %}
+            <!-- Admin Response Form -->
+            <form method="POST" action="{{ url_for('admin_resolve_query', query_id=q.id) }}" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+              <div class="form-group">
+                <label class="form-label" for="resolution_reason_{{ q.id }}">Mandatory Decision Reason / Message to Employee <span style="color: #f43f5e;">*</span></label>
+                <textarea id="resolution_reason_{{ q.id }}" name="resolution_reason" class="form-control" rows="2" required placeholder="State why this rejection is being upheld or overturned..."></textarea>
+              </div>
+
+              <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button type="submit" name="resolution" value="overturn" class="btn btn-success" style="flex: 1;">
+                  ✓ Overturn Rejection (Approve Claim)
+                </button>
+                <button type="submit" name="resolution" value="uphold" class="btn btn-danger" style="flex: 1;">
+                  ✕ Uphold Rejection
+                </button>
+              </div>
+            </form>
+          {% else %}
+            <!-- Past resolution info -->
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 1rem; font-size: 0.9rem;">
+              <div style="font-weight: 700; color: #fff;">
+                Resolution: {{ q.status | upper }}
+              </div>
+              <div style="color: var(--text-muted); margin-top: 0.25rem;">
+                "{{ q.resolution_reason }}"
+              </div>
+              <div class="form-text" style="margin-top: 0.25rem;">
+                Resolved by Admin #{{ q.admin_id }} on {{ q.resolved_at }}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+      No employee clarification queries currently submitted.
+    </div>
+  {% endif %}
+</div>
+
+<!-- All Auto-Rejected Receipts Section -->
+<div class="card" style="padding: 0;">
+  <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff;">
+      All Auto-Rejected Receipts ({{ rejected_receipts|length }})
+    </h2>
+  </div>
+
+  {% if rejected_receipts and rejected_receipts|length > 0 %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Employee</th>
+            <th>Issue Date</th>
+            <th>Merchant</th>
+            <th>Original Amount</th>
+            <th>Amount (INR)</th>
+            <th>Rejection Code</th>
+            <th>Query</th>
+            <th style="text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rejected_receipts %}
+            <tr>
+              <td style="font-weight: 600; color: var(--text-dim);">#{{ r.id }}</td>
+              <td>
+                <div style="font-weight: 600;">{{ r.user_name }}</div>
+                <div class="form-text">{{ r.employee_code }}</div>
+              </td>
+              <td>{{ r.issue_date or '—' }}</td>
+              <td>{{ r.merchant or '—' }}</td>
+              <td>{{ "{:,.2f}".format(r.amount_original or 0.0) }} {{ r.currency }}</td>
+              <td style="font-weight: 700;">₹{{ "{:,.2f}".format(r.amount_base or 0.0) }}</td>
+              <td>
+                <span class="badge badge-rejected">
+                  {{ r.rejection_code or 'REJECTED' }}
+                </span>
+              </td>
+              <td>
+                {% if r.query_status %}
+                  <span class="badge badge-{{ 'verified' if r.query_status == 'overturned' else ('rejected' if r.query_status == 'upheld' else 'flagged') }}">
+                    {{ r.query_status | capitalize }}
+                  </span>
+                {% else %}
+                  <span class="form-text">None</span>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <a href="{{ url_for('view_receipt_file', receipt_id=r.id) }}" target="_blank" class="btn btn-sm btn-secondary">
+                  View File
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+      No rejected receipts recorded.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

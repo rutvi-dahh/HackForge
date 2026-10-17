@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings & FX - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">System Settings & Exchange Rates</h1>
+    <p class="page-subtitle">Configure base currency, detection thresholds, and foreign exchange rates</p>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+  <!-- System Configuration -->
+  <div class="card">
+    <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem;">
+      General System Settings
+    </h2>
+
+    <form method="POST" action="{{ url_for('admin_update_settings') }}">
+      <div class="form-group">
+        <label class="form-label" for="base_currency">Base Currency</label>
+        <input type="text" id="base_currency" name="base_currency" class="form-control" value="{{ settings.BASE_CURRENCY }}" required>
+        <div class="form-text">All limits and reporting calculate against this currency.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="helpline_number">Employee Support Helpline</label>
+        <input type="text" id="helpline_number" name="helpline_number" class="form-control" value="{{ settings.HELPLINE_NUMBER }}" required>
+        <div class="form-text">Displayed on the employee Help Desk page.</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="conf_threshold">Field Confidence Threshold</label>
+          <input type="number" step="0.05" min="0.1" max="1.0" id="conf_threshold" name="conf_threshold" class="form-control" value="{{ settings.CONF_THRESHOLD }}" required>
+          <div class="form-text">Under this triggers "Info needed".</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="banned_threshold">Banned Confidence Threshold</label>
+          <input type="number" step="0.05" min="0.1" max="1.0" id="banned_threshold" name="banned_threshold" class="form-control" value="{{ settings.BANNED_THRESHOLD }}" required>
+          <div class="form-text">At or above auto-rejects receipt.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="groq_model">Groq Vision Model</label>
+        <input type="text" id="groq_model" name="groq_model" class="form-control" value="{{ settings.GROQ_MODEL }}" required>
+        <div class="form-text">Vision-capable model name used for live extraction.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+        Save System Settings
+      </button>
+    </form>
+  </div>
+
+  <!-- FX Rates Management -->
+  <div class="card">
+    <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem;">
+      Static Exchange Rates (to {{ settings.BASE_CURRENCY }})
+    </h2>
+
+    <div class="table-responsive" style="margin-bottom: 1.5rem;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Currency</th>
+            <th style="text-align: right;">Rate to {{ settings.BASE_CURRENCY }}</th>
+            <th>Effective Set Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fx in fx_rates %}
+            <tr>
+              <td style="font-weight: 700;">{{ fx.currency }}</td>
+              <td style="text-align: right; font-weight: 600; color: #34d399;">
+                {{ fx.rate_to_inr }}
+              </td>
+              <td>{{ fx.set_date }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Update / Add FX Rate Form -->
+    <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-muted);">Update / Add Currency Rate</h3>
+    <form method="POST" action="{{ url_for('admin_update_fx_rate') }}" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md);">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="fx_currency">Currency Code</label>
+          <input type="text" id="fx_currency" name="currency" class="form-control" placeholder="e.g. EUR" required maxlength="5" style="text-transform: uppercase;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="fx_rate">Rate to Base</label>
+          <input type="number" step="0.01" id="fx_rate" name="rate_to_inr" class="form-control" placeholder="e.g. 90.5" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" for="fx_set_date">Set Date</label>
+          <input type="date" id="fx_set_date" name="set_date" class="form-control" required value="{{ today_str }}">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-secondary btn-sm" style="margin-top: 1rem; width: 100%;">
+        Update Exchange Rate
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

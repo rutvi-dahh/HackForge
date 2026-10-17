@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Expense - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Submit New Expense</h1>
+    <p class="page-subtitle">Upload your invoice or receipt for instant policy verification</p>
+  </div>
+</div>
+
+<div style="max-width: 680px; margin: 0 auto;">
+  <div class="card">
+    <form method="POST" action="{{ url_for('upload_receipt') }}" enctype="multipart/form-data" id="uploadForm">
+      
+      <div class="form-group">
+        <label class="form-label" for="receipt_file">Receipt or Invoice Document <span style="color: #f43f5e;">*</span></label>
+        <div style="border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 2rem; text-align: center; background: rgba(0,0,0,0.2); cursor: pointer;" onclick="document.getElementById('receipt_file').click();" id="dropZone">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
+          <div style="font-weight: 600; font-size: 0.95rem;" id="fileNameDisplay">Choose a file or drag & drop here</div>
+          <div class="form-text">Accepted formats: JPG, PNG, PDF (Max 15MB)</div>
+        </div>
+        <input type="file" id="receipt_file" name="receipt_file" accept=".jpg,.jpeg,.png,.pdf" required style="display: none;" onchange="updateFileName(this)">
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label class="form-label" for="category">Expense Category <span style="color: #f43f5e;">*</span></label>
+          <select id="category" name="category" class="form-control" required onchange="handleCategoryChange()">
+            <option value="Food">Food (Meals, Client dining)</option>
+            <option value="Travel">Travel (Flights, Cabs, Tolls)</option>
+            <option value="Accommodation">Accommodation (Hotel, Lodging)</option>
+            <option value="Equipment">Equipment (Tools, Tech, Supplies)</option>
+            <option value="Miscellaneous">Miscellaneous (Other expenses)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="context">Business Context <span style="color: #f43f5e;">*</span></label>
+          <select id="context" name="context" class="form-control" required>
+            <option value="Trip">Trip (Official travel)</option>
+            <option value="Office">Office (Workplace / Local)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" id="attendeesGroup">
+        <label class="form-label" for="attendees">Number of Attendees <span style="color: #f43f5e;">*</span></label>
+        <input type="number" id="attendees" name="attendees" class="form-control" min="1" value="1" required>
+        <div class="form-text">Required for Food claims. Spending limits apply per person.</div>
+      </div>
+
+      <div class="form-group" style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; font-size: 0.92rem;">
+          <input type="checkbox" id="is_client_related" name="is_client_related" value="1" onchange="toggleClientName()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+          <span>This expense is client-related</span>
+        </label>
+        
+        <div id="clientNameGroup" style="display: none; margin-top: 1rem;">
+          <label class="form-label" for="client_name">Client or Organization Name <span style="color: #f43f5e;">*</span></label>
+          <input type="text" id="client_name" name="client_name" class="form-control" placeholder="e.g. Acme Corporation">
+        </div>
+      </div>
+
+      <div style="margin-top: 2rem;">
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem;" id="submitBtn">
+          <span>Run Policy Verification & Submit</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function updateFileName(input) {
+  if (input.files && input.files[0]) {
+    document.getElementById('fileNameDisplay').textContent = input.files[0].name + ' (' + (input.files[0].size / 1024).toFixed(1) + ' KB)';
+  }
+}
+
+function handleCategoryChange() {
+  const cat = document.getElementById('category').value;
+  const attendeesGroup = document.getElementById('attendeesGroup');
+  const attendeesInput = document.getElementById('attendees');
+  if (cat === 'Food') {
+    attendeesGroup.style.display = 'block';
+    attendeesInput.required = true;
+  } else {
+    attendeesGroup.style.display = 'block'; // keep visible with default 1
+    attendeesInput.required = false;
+  }
+}
+
+function toggleClientName() {
+  const isChecked = document.getElementById('is_client_related').checked;
+  const group = document.getElementById('clientNameGroup');
+  const input = document.getElementById('client_name');
+  if (isChecked) {
+    group.style.display = 'block';
+    input.required = true;
+  } else {
+    group.style.display = 'none';
+    input.required = false;
+  }
+}
+</script>
+{% endblock %}

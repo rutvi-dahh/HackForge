@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Review Queue - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Expense Review Queue</h1>
+    <p class="page-subtitle">Showing Verified & Flagged claims awaiting administrator action</p>
+  </div>
+  <div style="display: flex; gap: 1rem; align-items: center;">
+    <div class="toggle-group">
+      <a href="{{ url_for('admin_queue', view='category') }}" class="toggle-item {% if view_mode != 'employee' %}active{% endif %}">
+        Group by Category
+      </a>
+      <a href="{{ url_for('admin_queue', view='employee') }}" class="toggle-item {% if view_mode == 'employee' %}active{% endif %}">
+        Group by Employee
+      </a>
+    </div>
+    <a href="{{ url_for('admin_export_csv') }}" class="btn btn-secondary btn-sm">
+      📥 Export Approved CSV
+    </a>
+  </div>
+</div>
+
+{% if groups and groups|length > 0 %}
+  {% for group_title, items in groups.items() %}
+    <div class="card" style="margin-bottom: 2rem; padding: 0;">
+      <div style="padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: #fff;">
+          {{ group_title }}
+        </h2>
+        <span class="badge badge-secondary" style="background: rgba(255,255,255,0.08);">
+          {{ items|length }} {{ 'claim' if items|length == 1 else 'claims' }}
+        </span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Employee</th>
+              <th>Issue Date</th>
+              <th>Category</th>
+              <th>Original Amount</th>
+              <th>Amount (INR)</th>
+              <th>Status</th>
+              <th>Flags</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in items %}
+              <tr style="{% if r.dup_group_id %}background: rgba(245, 158, 11, 0.03);{% endif %}">
+                <td style="font-weight: 600; color: var(--text-dim);">
+                  #{{ r.id }}
+                  {% if r.is_original %}
+                    <span class="badge badge-verified" style="font-size: 0.65rem; padding: 0.15rem 0.35rem; margin-left: 0.25rem;">Original</span>
+                  {% elif r.dup_group_id %}
+                    <span class="badge badge-flagged" style="font-size: 0.65rem; padding: 0.15rem 0.35rem; margin-left: 0.25rem;">Duplicate</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div style="font-weight: 600;">{{ r.user_name }}</div>
+                  <div class="form-text">{{ r.employee_code }}</div>
+                </td>
+                <td>{{ r.issue_date or '—' }}</td>
+                <td>
+                  <span>{{ r.category_user }}</span>
+                  <div class="form-text">{{ r.context }} &bull; {{ r.city or 'Tier C' }}</div>
+                </td>
+                <td>
+                  {{ "{:,.2f}".format(r.amount_original or 0.0) }} {{ r.currency }}
+                </td>
+                <td style="font-weight: 700; color: #34d399;">
+                  ₹{{ "{:,.2f}".format(r.amount_base or 0.0) }}
+                </td>
+                <td>
+                  <span class="badge badge-{{ r.status }}">
+                    {{ r.status | capitalize }}
+                  </span>
+                </td>
+                <td>
+                  {% if r.flag_count and r.flag_count > 0 %}
+                    <span class="badge badge-flagged">{{ r.flag_count }} flag{{ 's' if r.flag_count > 1 }}</span>
+                  {% else %}
+                    <span style="color: var(--text-dim); font-size: 0.8rem;">Clean</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right;">
+                  <a href="{{ url_for('admin_receipt_detail', receipt_id=r.id) }}" class="btn btn-sm btn-primary">
+                    Review Claim &rarr;
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="card" style="text-align: center; padding: 4rem 2rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">🎉</div>
+    <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">Review Queue is Empty!</h3>
+    <p style="color: var(--text-muted);">There are no pending verified or flagged claims awaiting decision.</p>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}My Claims - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">My Expense Claims</h1>
+    <p class="page-subtitle">Track your submitted receipts and verification status</p>
+  </div>
+  <div>
+    <a href="{{ url_for('upload_receipt') }}" class="btn btn-primary">+ Submit Receipt</a>
+  </div>
+</div>
+
+<div class="card" style="padding: 0;">
+  {% if receipts and receipts|length > 0 %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Issue Date</th>
+            <th>Merchant</th>
+            <th>Category</th>
+            <th>Original Amount</th>
+            <th>Amount (INR)</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in receipts %}
+            <tr>
+              <td style="font-weight: 600; color: var(--text-dim);">#{{ r.id }}</td>
+              <td>{{ r.issue_date or '—' }}</td>
+              <td style="font-weight: 600;">{{ r.merchant or 'Unknown' }}</td>
+              <td>
+                <span>{{ r.category_user }}</span>
+                <span style="font-size: 0.75rem; color: var(--text-dim);">({{ r.context }})</span>
+              </td>
+              <td>
+                {{ "{:,.2f}".format(r.amount_original or 0.0) }} {{ r.currency }}
+              </td>
+              <td style="font-weight: 700;">
+                ₹{{ "{:,.2f}".format(r.amount_base or 0.0) }}
+              </td>
+              <td>
+                <span class="badge badge-{{ r.status }}">
+                  {{ r.status | replace('_', ' ') }}
+                </span>
+              </td>
+              <td>
+                <a href="{{ url_for('employee_receipt_detail', receipt_id=r.id) }}" class="btn btn-sm btn-secondary">
+                  {% if r.status == 'info_needed' %}
+                    Resolve Info
+                  {% elif r.status == 'rejected' %}
+                    View / Query
+                  {% else %}
+                    View Details
+                  {% endif %}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 4rem 2rem;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🧾</div>
+      <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem;">No receipts submitted yet</h3>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem;">You haven't uploaded any receipts or invoices yet.</p>
+      <a href="{{ url_for('upload_receipt') }}" class="btn btn-primary">Upload Your First Receipt</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

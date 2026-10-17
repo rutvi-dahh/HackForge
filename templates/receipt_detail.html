@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Receipt #{{ receipt.id }} - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.25rem;">
+      <h1 class="page-title">Receipt #{{ receipt.id }}</h1>
+      <span class="badge badge-{{ receipt.status }}" style="font-size: 0.9rem;">
+        {{ receipt.status | replace('_', ' ') }}
+      </span>
+      {% if receipt.dup_group_id %}
+        <span class="badge badge-flagged" style="font-size: 0.75rem;">
+          Duplicate Cluster
+        </span>
+      {% endif %}
+    </div>
+    <p class="page-subtitle">Submitted on {{ receipt.uploaded_at }} &bull; {{ receipt.merchant or 'Unknown Merchant' }}</p>
+  </div>
+  <div style="display: flex; gap: 0.5rem;">
+    <a href="{{ url_for('employee_receipts') }}" class="btn btn-secondary">&larr; Back to Claims</a>
+    <a href="{{ url_for('view_receipt_file', receipt_id=receipt.id) }}" target="_blank" class="btn btn-primary">
+      👁 View Original Receipt
+    </a>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <!-- Left Column: Details, Line Items, Missing Fields Form, Query Form -->
+  <div>
+    <div class="card">
+      <h3 style="font-size: 1.15rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+        Claim Breakdown
+      </h3>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem;">
+        <div>
+          <div class="form-text">Merchant Name</div>
+          <div style="font-weight: 600;">{{ receipt.merchant or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Unique Invoice/Bill #</div>
+          <div style="font-weight: 600;">{{ receipt.unique_id or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Issue Date</div>
+          <div style="font-weight: 600;">{{ receipt.issue_date or '—' }}</div>
+        </div>
+        <div>
+          <div class="form-text">Location & Tier</div>
+          <div style="font-weight: 600;">{{ receipt.city or '—' }} (Tier {{ receipt.tier or 'C' }})</div>
+        </div>
+        <div>
+          <div class="form-text">Category & Context</div>
+          <div style="font-weight: 600;">{{ receipt.category_user }} &bull; {{ receipt.context }}</div>
+        </div>
+        <div>
+          <div class="form-text">Attendees</div>
+          <div style="font-weight: 600;">{{ receipt.attendees or 1 }}</div>
+        </div>
+        {% if receipt.is_client_related %}
+          <div>
+            <div class="form-text">Client Name</div>
+            <div style="font-weight: 600;">{{ receipt.client_name or '—' }}</div>
+          </div>
+        {% endif %}
+        <div>
+          <div class="form-text">Original Stated Total</div>
+          <div style="font-weight: 600;">{{ "{:,.2f}".format(receipt.amount_original or 0.0) }} {{ receipt.currency }}</div>
+        </div>
+        <div>
+          <div class="form-text">Base Reimbursable Amount</div>
+          <div style="font-weight: 700; color: #34d399; font-size: 1.1rem;">
+            ₹{{ "{:,.2f}".format(receipt.amount_base or 0.0) }} INR
+          </div>
+        </div>
+      </div>
+
+      <!-- Line items table -->
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text-muted);">Extracted Line Items</h4>
+      {% if items and items|length > 0 %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th style="width: 80px;">Qty</th>
+                <th style="text-align: right; width: 120px;">Amount</th>
+                <th style="width: 150px;">Banned Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for itm in items %}
+                <tr>
+                  <td>{{ itm.name }}</td>
+                  <td>{{ itm.qty or 1 }}</td>
+                  <td style="text-align: right; font-weight: 600;">{{ "{:,.2f}".format(itm.amount or 0.0) }}</td>
+                  <td>
+                    {% if itm.banned_match %}
+                      <span class="badge badge-rejected">{{ itm.banned_match }} ({{ "%.0f"|format((itm.banned_conf or 0)*100) }}%)</span>
+                    {% else %}
+                      <span style="color: var(--text-dim); font-size: 0.8rem;">Eligible</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-dim);">
+          No individual itemized lines detected or only summary total shown.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Missing Fields Form (if status == 'info_needed') -->
+    {% if receipt.status == 'info_needed' %}
+      <div class="card" id="complete-info" style="border: 1px solid var(--status-info-border); background: rgba(56, 189, 248, 0.05);">
+        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem; color: #38bdf8;">Complete Missing Information</h3>
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
+          The system paused verification because key receipt information was missing or unreadable. Please provide the accurate information below to re-run policy evaluation.
+        </p>
+
+        <form method="POST" action="{{ url_for('employee_complete_info', receipt_id=receipt.id) }}">
+          {% if 'issue_date' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="issue_date">Issue Date (printed on receipt) <span style="color: #f43f5e;">*</span></label>
+              <input type="date" id="issue_date" name="issue_date" class="form-control" required value="{{ receipt.issue_date or '' }}">
+            </div>
+          {% endif %}
+
+          {% if 'total' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="total">Total Amount <span style="color: #f43f5e;">*</span></label>
+              <input type="number" step="0.01" id="total" name="total" class="form-control" required value="{{ receipt.amount_original or '' }}">
+            </div>
+          {% endif %}
+
+          {% if 'unique_id' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="unique_id">Invoice / Receipt / Bill Number <span style="color: #f43f5e;">*</span></label>
+              <input type="text" id="unique_id" name="unique_id" class="form-control" required placeholder="e.g. INV-1092" value="{{ receipt.unique_id or '' }}">
+            </div>
+          {% endif %}
+
+          {% if 'attendees' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="attendees">Number of Attendees <span style="color: #f43f5e;">*</span></label>
+              <input type="number" id="attendees" name="attendees" class="form-control" min="1" required value="{{ receipt.attendees or 1 }}">
+            </div>
+          {% endif %}
+
+          {% if 'client_name' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="client_name">Client or Organization Name <span style="color: #f43f5e;">*</span></label>
+              <input type="text" id="client_name" name="client_name" class="form-control" required placeholder="e.g. Acme Global" value="{{ receipt.client_name or '' }}">
+            </div>
+          {% endif %}
+
+          {% if 'currency' in missing_fields %}
+            <div class="form-group">
+              <label class="form-label" for="currency">Currency <span style="color: #f43f5e;">*</span></label>
+              <select id="currency" name="currency" class="form-control" required>
+                <option value="INR" {% if receipt.currency == 'INR' %}selected{% endif %}>INR (Indian Rupee)</option>
+                <option value="MYR" {% if receipt.currency == 'MYR' %}selected{% endif %}>MYR (Malaysian Ringgit)</option>
+                <option value="USD" {% if receipt.currency == 'USD' %}selected{% endif %}>USD (US Dollar)</option>
+              </select>
+            </div>
+          {% endif %}
+
+          <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
+            Save & Re-evaluate Policy Rules
+          </button>
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- Rejected Receipt Query Section -->
+    {% if receipt.status == 'rejected' %}
+      <div class="card" style="border: 1px solid var(--status-rejected-border); background: rgba(244, 63, 94, 0.04);">
+        <h3 style="font-size: 1.15rem; margin-bottom: 0.5rem; color: #fb7185;">Rejection Clarification Query</h3>
+        
+        {% if query %}
+          <div style="background: rgba(0,0,0,0.3); padding: 1.25rem; border-radius: var(--radius-md); margin-top: 1rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 700; font-size: 0.9rem;">Your Clarification Message:</span>
+              <span class="badge badge-{{ 'verified' if query.status == 'overturned' else ('rejected' if query.status == 'upheld' else 'flagged') }}">
+                Status: {{ query.status | capitalize }}
+              </span>
+            </div>
+            <p style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 1rem; line-height: 1.4;">
+              "{{ query.message }}"
+            </p>
+            <div class="form-text">Submitted on {{ query.created_at }}</div>
+
+            {% if query.status != 'open' %}
+              <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+                <div style="font-weight: 700; font-size: 0.9rem; color: #fff; margin-bottom: 0.35rem;">
+                  Admin Decision: {{ query.status | upper }}
+                </div>
+                <div style="font-size: 0.92rem; color: var(--text-muted); line-height: 1.4;">
+                  {{ query.resolution_reason or 'No additional comment provided.' }}
+                </div>
+                <div class="form-text" style="margin-top: 0.35rem;">
+                  Reviewed by Admin (ID #{{ query.admin_id }}) on {{ query.resolved_at }}
+                </div>
+              </div>
+            {% else %}
+              <div style="margin-top: 1rem; font-size: 0.85rem; color: #fbbf24;">
+                ⏳ Awaiting administrator review. You will receive an official response and resolution here.
+              </div>
+            {% endif %}
+          </div>
+        {% else %}
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Auto-rejections cannot be resubmitted. However, you may submit exactly one clarification query to the finance team explaining your claim circumstances.
+          </p>
+
+          <form method="POST" action="{{ url_for('employee_submit_query', receipt_id=receipt.id) }}">
+            <div class="form-group">
+              <label class="form-label" for="message">Your Query / Explanation <span style="color: #f43f5e;">*</span></label>
+              <textarea id="message" name="message" class="form-control" rows="4" required placeholder="Explain why this expense was necessary for official company business..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger">
+              Submit Clarification to Finance Admin
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Right Column: Flags Panel & Decision Trail -->
+  <div>
+    <!-- Flags panel -->
+    <div class="card">
+      <h3 style="font-size: 1.1rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+        <span>Rule Policy Flags</span>
+        <span class="badge badge-flagged">{{ flags|length }}</span>
+      </h3>
+
+      {% if flags and flags|length > 0 %}
+        {% for flag in flags %}
+          <div class="flag-card">
+            <div class="flag-header">
+              <span>{{ flag.code }}</span>
+              <span class="flag-clause">{{ flag.clause }}</span>
+            </div>
+            <div class="flag-message">{{ flag.message }}</div>
+            {% if flag.amount_affected %}
+              <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.4rem;">
+                Amount affected: ₹{{ "{:,.2f}".format(flag.amount_affected) }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <div style="color: var(--text-muted); font-size: 0.88rem;">
+          No review flags triggered. All policy checks passed.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Admin Decision audit trail -->
+    {% if decisions and decisions|length > 0 %}
+      <div class="card">
+        <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Decision Audit Trail</h3>
+        {% for d in decisions %}
+          <div style="background: rgba(0,0,0,0.2); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <span class="badge badge-{{ d.decision }}">{{ d.decision | upper }}</span>
+              <span class="form-text">{{ d.created_at }}</span>
+            </div>
+            <div style="font-size: 0.88rem; color: var(--text-main);">
+              "{{ d.reason }}"
+            </div>
+            <div class="form-text" style="margin-top: 0.3rem;">
+              By Admin #{{ d.admin_id }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
