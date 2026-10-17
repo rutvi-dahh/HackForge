@@ -1,0 +1,14 @@
+file,employee,user_category,context,attendees,client,currency,expected_outcome,tests
+hotel_ok.png,E1,Accommodation,trip,,,INR,Verified,"Tier-1 city, within limits"
+hotel_office_context.png,E2,Accommodation,office,,,INR,Flagged,Accommodation with Office context; Gurgaon alias test
+travel_cab.png,E1,Travel,trip,,,INR,Verified,Slight rotation test
+alcohol_bar.png,E3,Food,trip,3,,INR,Rejected,Banned items (alcohol); mixed receipt rejected whole
+overlimit_meal.png,E3,Food,trip,1,,INR,Flagged,Over per-person food limit; perfectly round total; attendee=1
+math_mismatch.png,E4,Miscellaneous,office,,,INR,Flagged,"Items sum 630, stated total 980"
+wrong_category.png,E2,Food,office,2,,MYR,Flagged,"User says Food, items are stationery; MYR conversion test"
+missing_date_total.png,E4,Food,office,1,,?,Info needed,"No date, no total, low quality"
+dup_invoice.pdf,E1,Equipment,office,,,INR,Verified (original),Upload first
+dup_invoice_photo.png,E1,Equipment,office,,,INR,Flagged (duplicate cluster),"Upload second; same unique ID, cross-format"
+old_receipt.png,E1,Food,office,2,,INR,Rejected (live upload only),More than 15 days old; is_seeded=0 required to test; exempt if seeded
+blank_invoice.pdf,E4,Equipment,office,,,USD,Info needed,"Empty template, no ID or items"
+usd_invoice.pdf,E2,Equipment,office,,,USD,Verified,USD conversion test; US city -> fallback tier

@@ -8,6 +8,12 @@ DEFAULT_DB_PATH = BASE_DIR / "receipt_graveyard.db"
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
 def get_db_path():
+    try:
+        from flask import current_app
+        if current_app and "DATABASE_PATH" in current_app.config:
+            return current_app.config["DATABASE_PATH"]
+    except Exception:
+        pass
     return os.environ.get("DATABASE_PATH", str(DEFAULT_DB_PATH))
 
 def get_db(db_path=None):

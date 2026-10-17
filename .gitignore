@@ -1,0 +1,33 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables & secrets
+.env
+
+# SQLite Database
+*.db
+*.sqlite3
+receipt_graveyard.db
+
+# User Uploads (keep directory structure via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
