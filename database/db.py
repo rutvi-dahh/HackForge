@@ -49,8 +49,38 @@ def init_db(db_or_path=None):
         pass
 
     conn.commit()
+
+    # Startup integrity check: verify all SPEC section-6 receipts columns exist
+    _check_schema_integrity(conn)
+
     if should_close:
         conn.close()
+
+# SPEC section 6 required columns
+_REQUIRED_RECEIPT_COLS = {
+    "id", "user_id", "file_path", "file_hash", "source_type",
+    "category_user", "category_model", "context", "attendees",
+    "is_client_related", "client_name", "merchant", "city", "country",
+    "tier", "issue_date", "unique_id", "currency",
+    "amount_original", "fx_rate", "amount_base",
+    "subtotal", "tax", "discount", "shipping", "nights",
+    "items_json", "conf_json", "extraction_json",
+    "status", "flags_json", "missing_fields_json",
+    "dup_group_id", "uploaded_at", "is_seeded",
+}
+
+def _check_schema_integrity(conn):
+    try:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(receipts)").fetchall()}
+        missing = _REQUIRED_RECEIPT_COLS - cols
+        if missing:
+            print(
+                f"\n⚠️  SCHEMA MISMATCH: receipts table is missing columns: {sorted(missing)}\n"
+                "   This usually means you have a stale database from an old schema version.\n"
+                "   FIX: delete receipt_graveyard.db and re-run: python seed.py\n"
+            )
+    except Exception:
+        pass
 
 def load_json_config(filename):
     config_path = BASE_DIR / "config" / filename

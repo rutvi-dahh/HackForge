@@ -326,7 +326,6 @@ def employee_complete_info(receipt_id):
         """UPDATE receipts SET
             issue_date = ?,
             unique_id = ?,
-            total = ?,
             amount_original = ?,
             currency = ?,
             fx_rate = ?,
@@ -343,7 +342,6 @@ def employee_complete_info(receipt_id):
         (
             extraction.get("issue_date"),
             extraction.get("unique_id"),
-            eval_res.get("amount_original"),
             eval_res.get("amount_original"),
             eval_res.get("currency"),
             eval_res.get("fx_rate"),
