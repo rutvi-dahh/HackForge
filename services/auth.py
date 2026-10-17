@@ -23,6 +23,14 @@ def login_required(f):
         if "user_id" not in session:
             flash("Please log in to continue.", "warning")
             return redirect(url_for("login"))
+        # Guard against stale sessions (e.g. after DB re-seed)
+        db = get_db()
+        user = db.execute("SELECT id FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        db.close()
+        if not user:
+            session.clear()
+            flash("Your session has expired. Please log in again.", "warning")
+            return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated_function
 
