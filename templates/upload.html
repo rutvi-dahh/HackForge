@@ -15,8 +15,8 @@
     <form method="POST" action="{{ url_for('upload_receipt') }}" enctype="multipart/form-data" id="uploadForm">
       
       <div class="form-group">
-        <label class="form-label" for="receipt_file">Receipt or Invoice Document <span style="color: #f43f5e;">*</span></label>
-        <div style="border: 2px dashed var(--border-subtle); border-radius: var(--radius-md); padding: 2rem; text-align: center; background: rgba(0,0,0,0.2); cursor: pointer;" onclick="document.getElementById('receipt_file').click();" id="dropZone">
+        <label class="form-label" for="receipt_file">Receipt or Invoice Document <span class="text-required">*</span></label>
+        <div class="dropzone" onclick="document.getElementById('receipt_file').click();" id="dropZone">
           <div style="font-size: 2rem; margin-bottom: 0.5rem;">📄</div>
           <div style="font-weight: 600; font-size: 0.95rem;" id="fileNameDisplay">Choose a file or drag & drop here</div>
           <div class="form-text">Accepted formats: JPG, PNG, PDF (Max 15MB)</div>
@@ -26,7 +26,7 @@
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
-          <label class="form-label" for="category">Expense Category <span style="color: #f43f5e;">*</span></label>
+          <label class="form-label" for="category">Expense Category <span class="text-required">*</span></label>
           <select id="category" name="category" class="form-control" required onchange="handleCategoryChange()">
             <option value="Food">Food (Meals, Client dining)</option>
             <option value="Travel">Travel (Flights, Cabs, Tolls)</option>
@@ -38,7 +38,7 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="context">Business Context <span style="color: #f43f5e;">*</span></label>
+          <label class="form-label" for="context">Business Context <span class="text-required">*</span></label>
           <select id="context" name="context" class="form-control" required>
             <option value="Trip">Trip (Official travel)</option>
             <option value="Office">Office (Workplace / Local)</option>
@@ -48,32 +48,32 @@
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
-          <label class="form-label" for="claimed_amount">Claimed Amount <span style="color: #f43f5e;">*</span></label>
+          <label class="form-label" for="claimed_amount">Claimed Amount <span class="text-required">*</span></label>
           <input type="number" step="0.01" min="0.01" id="claimed_amount" name="claimed_amount" class="form-control" placeholder="Total as printed on receipt" required>
           <div class="form-text">In receipt's printed currency.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="claimed_invoice_no">Invoice / Receipt No. <span style="color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
+          <label class="form-label" for="claimed_invoice_no">Invoice / Receipt No. <span class="text-muted">(Optional)</span></label>
           <input type="text" id="claimed_invoice_no" name="claimed_invoice_no" class="form-control" placeholder="e.g. INV-2026-001">
           <div class="form-text">As printed on document.</div>
         </div>
       </div>
 
       <div class="form-group" id="attendeesGroup">
-        <label class="form-label" for="attendees">Number of Attendees <span style="color: #f43f5e;">*</span></label>
+        <label class="form-label" for="attendees">Number of Attendees <span class="text-required">*</span></label>
         <input type="number" id="attendees" name="attendees" class="form-control" min="1" value="1" required>
         <div class="form-text">Required for Food claims. Spending limits apply per person.</div>
       </div>
 
-      <div class="form-group" style="background: rgba(255,255,255,0.02); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div class="form-group bg-subtle-box">
         <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-weight: 600; font-size: 0.92rem;">
-          <input type="checkbox" id="is_client_related" name="is_client_related" value="1" onchange="toggleClientName()" style="width: 18px; height: 18px; accent-color: var(--primary);">
+          <input type="checkbox" id="is_client_related" name="is_client_related" value="1" onchange="toggleClientName()" style="width: 18px; height: 18px;">
           <span>This expense is client-related</span>
         </label>
         
         <div id="clientNameGroup" style="display: none; margin-top: 1rem;">
-          <label class="form-label" for="client_name">Client or Organization Name <span style="color: #f43f5e;">*</span></label>
+          <label class="form-label" for="client_name">Client or Organization Name <span class="text-required">*</span></label>
           <input type="text" id="client_name" name="client_name" class="form-control" placeholder="e.g. Acme Corporation">
         </div>
       </div>

@@ -89,11 +89,11 @@
           {% for fx in fx_rates %}
             <tr>
               <td style="font-weight: 700;">{{ fx.currency }}</td>
-              <td style="text-align: right; font-weight: 600; color: #34d399;">
+              <td style="text-align: right; font-weight: 700; color: var(--navy);">
                 {{ "%.4f"|format(fx.rate_to_base) if fx.rate_to_base is not none else fx.rate_to_inr }}
               </td>
               <td>{{ fx.fetched_at or fx.set_date }}</td>
-              <td><span class="badge badge-secondary" style="font-size: 0.7rem;">{{ fx.source or 'manual' }}</span></td>
+              <td><span class="badge" style="background: var(--peach-100); color: var(--navy); font-size: 0.7rem;">{{ fx.source or 'manual' }}</span></td>
             </tr>
           {% endfor %}
         </tbody>
@@ -101,14 +101,14 @@
     </div>
 
     <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-muted);">
-      <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color: var(--primary); text-decoration: underline;">
+      <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color: var(--navy); text-decoration: underline;">
         Rates By Exchange Rate API
       </a>
     </div>
 
     <!-- Update / Add FX Rate Form -->
     <h3 style="font-size: 1rem; margin-bottom: 0.75rem; color: var(--text-muted);">Update / Add Currency Rate</h3>
-    <form method="POST" action="{{ url_for('admin_update_fx_rate') }}" style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: var(--radius-md);">
+    <form method="POST" action="{{ url_for('admin_update_fx_rate') }}" class="bg-subtle-box">
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
         <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="fx_currency">Currency Code</label>

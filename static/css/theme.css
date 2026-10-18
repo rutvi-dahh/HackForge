@@ -45,9 +45,10 @@
   /* Semantic UI Tokens */
   --bg-page: var(--peach-50);
   --bg-card: var(--white);
-  --bg-subtle: var(--grey-50);
-  --border-subtle: var(--peach-100);
-  --border-card: rgba(0, 35, 102, 0.12);
+  --bg-subtle: var(--peach-100);
+  --bg-surface: var(--white);
+  --border-subtle: rgba(0, 35, 102, 0.1);
+  --border-card: rgba(0, 35, 102, 0.14);
   --border-focus: var(--navy-500);
 
   /* Typography */
@@ -55,7 +56,8 @@
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --text-main: var(--grey-900);
   --text-secondary: var(--grey-700);
-  --text-muted: var(--grey-500);
+  --text-muted: var(--grey-600);
+  --text-dim: var(--grey-500);
   --text-on-navy: var(--peach);
   --text-on-navy-bright: #ffffff;
 
@@ -81,7 +83,7 @@
   --radius-md: 10px;
   --radius-lg: 12px;
   --radius-xl: 24px;
-  --shadow-sm: 0 1px 2px rgba(0, 35, 102, 0.05);
+  --shadow-sm: 0 1px 3px rgba(0, 35, 102, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 35, 102, 0.08);
   --shadow-lg: 0 10px 25px rgba(0, 35, 102, 0.12);
 }
@@ -103,7 +105,7 @@ body {
   flex-direction: column;
 }
 
-h1, h2, h3, .heading-serif {
+h1, h2, h3, h4, .heading-serif {
   font-family: var(--font-serif);
   color: var(--navy);
   font-weight: 700;
@@ -120,6 +122,9 @@ h1, h2, h3, .heading-serif {
   padding: 0.85rem 2rem;
   border-bottom: 2px solid var(--navy-800);
   box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .nav-brand {
@@ -131,12 +136,6 @@ h1, h2, h3, .heading-serif {
   font-family: var(--font-serif);
   font-size: 1.25rem;
   font-weight: 700;
-}
-
-.nav-brand .brand-logo {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .nav-links {
@@ -194,6 +193,31 @@ h1, h2, h3, .heading-serif {
   flex: 1;
 }
 
+/* Page Header */
+.page-header {
+  margin-bottom: 1.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.85rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--navy);
+  letter-spacing: -0.01em;
+}
+
+.page-subtitle {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-top: 0.2rem;
+}
+
 /* Card System */
 .card {
   background-color: var(--bg-card);
@@ -204,11 +228,12 @@ h1, h2, h3, .heading-serif {
   margin-bottom: 1.5rem;
 }
 
-/* Button System */
+/* Button System: .btn-primary (navy) and .btn-secondary (outline) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.4rem;
   font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
@@ -216,7 +241,7 @@ h1, h2, h3, .heading-serif {
   padding: 0.55rem 1.15rem;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: all 0.15s ease;
   line-height: 1.3;
 }
 
@@ -244,13 +269,36 @@ h1, h2, h3, .heading-serif {
   font-size: 0.82rem;
 }
 
+.btn-danger {
+  background-color: var(--status-rejected-bg);
+  color: var(--status-rejected-text);
+  border: 1px solid var(--status-rejected-border);
+}
+.btn-danger:hover {
+  background-color: var(--status-rejected-text);
+  color: var(--white);
+}
+
+.btn-success {
+  background-color: var(--status-verified-bg);
+  color: var(--status-verified-text);
+  border: 1px solid var(--status-verified-border);
+}
+.btn-success:hover {
+  background-color: var(--status-verified-text);
+  color: var(--white);
+}
+
+/* Fixed dimensions for Admin Review buttons (SPEC s3) */
 .btn-review {
   width: 120px !important;
   height: 36px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
+  box-sizing: border-box !important;
   font-size: 0.85rem !important;
+  font-weight: 600 !important;
   padding: 0 !important;
 }
 
@@ -282,7 +330,13 @@ h1, h2, h3, .heading-serif {
 .form-control:focus {
   outline: none;
   border-color: var(--navy);
-  box-shadow: 0 0 0 3px rgba(0, 35, 102, 0.15);
+  box-shadow: 0 0 0 3px rgba(0, 35, 102, 0.12);
+}
+
+.form-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.3rem;
 }
 
 /* Status Badges */
@@ -335,6 +389,36 @@ h1, h2, h3, .heading-serif {
 .alert-warning { background: #fef7e0; color: #8c4e00; border-color: #feefc3; }
 .alert-info { background: #e8f0fe; color: #174ea6; border-color: #d2e3fc; }
 
+/* Tables */
+.table-responsive {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.table th {
+  padding: 0.85rem 1rem;
+  background-color: var(--peach-50);
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border-card);
+}
+.table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.92rem;
+  vertical-align: middle;
+  color: var(--text-main);
+}
+.table tr:hover td {
+  background-color: var(--peach-50);
+}
+
 /* Dialog Modals */
 dialog {
   border: 1px solid var(--border-card);
@@ -352,6 +436,87 @@ dialog::backdrop {
   backdrop-filter: blur(3px);
 }
 
+/* Detail Split View */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+}
+@media (max-width: 900px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+
+/* Flag List Cards */
+.flag-card {
+  background: var(--status-flagged-bg);
+  border-left: 4px solid var(--status-flagged-text);
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.88rem;
+}
+.flag-card.danger {
+  background: var(--status-rejected-bg);
+  border-left-color: var(--status-rejected-text);
+}
+.flag-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 0.25rem;
+}
+.flag-clause {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.flag-message {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Pill Toggles */
+.toggle-group {
+  display: inline-flex;
+  background: var(--peach-50);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+}
+.toggle-item {
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  color: var(--navy);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+.toggle-item:hover {
+  background: var(--peach-100);
+}
+.toggle-item.active {
+  background: var(--navy);
+  color: var(--peach);
+  font-weight: 600;
+}
+
+/* Dropzone */
+.dropzone {
+  border: 2px dashed var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  text-align: center;
+  background: var(--peach-50);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dropzone:hover {
+  background: var(--peach-100);
+  border-color: var(--navy);
+}
+
 /* Footer */
 .footer {
   margin-top: auto;
@@ -365,6 +530,21 @@ dialog::backdrop {
 .footer a {
   color: var(--peach);
   text-decoration: underline;
+}
+
+/* Utility Helpers (replacing inline colors) */
+.text-required { color: var(--status-rejected-text); }
+.text-muted { color: var(--text-muted); }
+.text-danger { color: var(--status-rejected-text); }
+.text-warning { color: var(--status-flagged-text); }
+.text-success { color: var(--status-verified-text); }
+.text-navy { color: var(--navy); }
+.text-dim { color: var(--text-dim); }
+.bg-subtle-box {
+  background: var(--peach-50);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
 }
 
 /* Login Page Shell */

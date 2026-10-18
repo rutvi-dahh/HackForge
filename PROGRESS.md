@@ -15,4 +15,4 @@
 | **Fix** | User Claim Deletion Option | **DONE** | Implemented `POST /receipts/<id>/delete` allowing employees to delete their own claims with quick-trash icons in `receipts.html` and modal confirmation in `receipt_detail.html`. Added smoke tests covering deletion flow (40/40 tests green). |
 | **Fix** | Modal Background Transparency Fix | **DONE** | Corrected CSS variable styling so all modal `<dialog>` elements (`receiptModal`, `denyModal`, `deleteModal`) render with a solid, high-contrast dark card background (`#151d30`) and backdrop blur instead of transparent backgrounds. |
 | **F1** | Theme & Login | **DONE** | Created static/css/theme.css with navy/peach tokens; offline Inter/Georgia fonts; landing page login with frosted card, SVG logo, password toggle, remember-me (30d), and /forgot-password page. 40/40 tests green. |
-
+| **F2** | Restyle Remaining Pages | **DONE** | Restyled base.html, upload, receipts, receipt_detail, result, queue, rejected_queries, help, policy, and settings using theme.css variables; replaced all inline colors with semantic tokens; light corporate palette; 40/40 tests green. |

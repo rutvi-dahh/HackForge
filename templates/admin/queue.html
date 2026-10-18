@@ -26,11 +26,11 @@
 {% if groups and groups|length > 0 %}
   {% for group_title, items in groups.items() %}
     <div class="card" style="margin-bottom: 2rem; padding: 0;">
-      <div style="padding: 1rem 1.5rem; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
-        <h2 style="font-size: 1.15rem; font-weight: 700; color: #fff;">
+      <div style="padding: 1rem 1.5rem; background: var(--peach-50); border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="font-size: 1.15rem; font-weight: 700; color: var(--navy);">
           {{ group_title }}
         </h2>
-        <span class="badge badge-secondary" style="background: rgba(255,255,255,0.08);">
+        <span class="badge" style="background: var(--peach-100); color: var(--navy);">
           {{ items|length }} {{ 'claim' if items|length == 1 else 'claims' }}
         </span>
       </div>
@@ -52,7 +52,7 @@
           </thead>
           <tbody>
             {% for r in items %}
-              <tr style="{% if r.dup_group_id %}background: rgba(245, 158, 11, 0.03);{% endif %}">
+              <tr style="{% if r.dup_group_id %}background: var(--peach-50);{% endif %}">
                 <td style="font-weight: 600; color: var(--text-dim);">
                   #{{ r.id }}
                   {% if r.is_original %}
@@ -73,7 +73,7 @@
                 <td>
                   {{ "{:,.2f}".format(r.amount_original or 0.0) }} {{ r.currency }}
                 </td>
-                <td style="font-weight: 700; color: #34d399;">
+                <td style="font-weight: 700; color: var(--navy);">
                   ₹{{ "{:,.2f}".format(r.amount_base or 0.0) }}
                 </td>
                 <td>

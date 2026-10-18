@@ -14,7 +14,7 @@
   </div>
 </div>
 
-<div class="card" style="border-left: 6px solid {% if receipt.status == 'verified' %}#10b981{% elif receipt.status == 'flagged' %}#f59e0b{% elif receipt.status == 'rejected' %}#f43f5e{% else %}#38bdf8{% endif %};">
+<div class="card" style="border-left: 6px solid var(--status-{{ receipt.status }}-border, var(--border-card));">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
     <div>
       <span class="badge badge-{{ receipt.status }}" style="font-size: 1.1rem; padding: 0.5rem 1.25rem;">
@@ -35,7 +35,7 @@
     </div>
   </div>
 
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; background: rgba(0,0,0,0.2); padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+  <div class="bg-subtle-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
     <div>
       <div class="form-text">Merchant</div>
       <div style="font-weight: 600;">{{ receipt.merchant or 'Unknown Merchant' }}</div>
@@ -56,7 +56,7 @@
 
   {% if receipt.status == 'rejected' %}
     <div style="margin-top: 1.5rem;">
-      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: #fb7185;">Rejection Reason (Final Decision)</h3>
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--status-rejected-text);">Rejection Reason (Final Decision)</h3>
       <div class="flag-card danger">
         <div class="flag-header">
           <span>{{ rejection_reason.code if rejection_reason else 'POLICY_VIOLATION' }}</span>
@@ -73,7 +73,7 @@
 
   {% elif receipt.status == 'info_needed' %}
     <div style="margin-top: 1.5rem;">
-      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: #38bdf8;">Missing or Low-Confidence Fields</h3>
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--status-info_needed-text);">Missing or Low-Confidence Fields</h3>
       <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
         The system does not silently guess. Please provide the required information below to re-run verification:
       </p>
@@ -91,7 +91,7 @@
 
   {% elif receipt.status == 'flagged' %}
     <div style="margin-top: 1.5rem;">
-      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: #fbbf24;">Policy Flags Recorded for Admin Review</h3>
+      <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--status-flagged-text);">Policy Flags Recorded for Admin Review</h3>
       <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
         The following flag(s) were recorded. Limits never auto-reject; an administrator will review this claim with the context provided.
       </p>
@@ -112,8 +112,8 @@
     </div>
 
   {% else %}
-    <div style="margin-top: 1.5rem; background: rgba(16, 185, 129, 0.08); border: 1px solid var(--status-verified-border); border-radius: var(--radius-md); padding: 1.25rem;">
-      <h3 style="font-size: 1.1rem; color: #34d399; margin-bottom: 0.4rem;">All Policy Checks Verified</h3>
+    <div style="margin-top: 1.5rem; background: var(--status-verified-bg); border: 1px solid var(--status-verified-border); border-radius: var(--radius-md); padding: 1.25rem;">
+      <h3 style="font-size: 1.1rem; color: var(--status-verified-text); margin-bottom: 0.4rem;">All Policy Checks Verified</h3>
       <p style="color: var(--text-muted); font-size: 0.9rem;">
         This receipt has passed all validation checks and spending limits. It has been queued for standard administrator approval.
       </p>

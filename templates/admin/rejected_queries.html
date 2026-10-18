@@ -13,7 +13,7 @@
 <!-- Active Employee Queries Section -->
 <div class="card" style="margin-bottom: 2rem;">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
-    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff;">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--navy);">
       Active Clarification Queries ({{ queries|length }})
     </h2>
     <span class="form-text">Single message & reply resolution per receipt</span>
@@ -22,11 +22,11 @@
   {% if queries and queries|length > 0 %}
     <div style="display: flex; flex-direction: column; gap: 1.5rem;">
       {% for q in queries %}
-        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.5rem;">
+        <div class="bg-subtle-box">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
             <div>
               <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span style="font-weight: 700; font-size: 1.05rem;">Receipt #{{ q.receipt_id }}</span>
+                <span style="font-weight: 700; font-size: 1.05rem; color: var(--navy);">Receipt #{{ q.receipt_id }}</span>
                 <span class="badge badge-{{ 'verified' if q.status == 'overturned' else ('rejected' if q.status == 'upheld' else 'flagged') }}">
                   Query Status: {{ q.status | capitalize }}
                 </span>
@@ -44,7 +44,7 @@
           </div>
 
           <!-- Receipt basic info -->
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; background: rgba(255,255,255,0.02); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.88rem;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; background: var(--white); border: 1px solid var(--border-card); padding: 0.85rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.88rem;">
             <div><strong>Merchant:</strong> {{ q.merchant or '—' }}</div>
             <div><strong>Date:</strong> {{ q.issue_date or '—' }}</div>
             <div><strong>Category:</strong> {{ q.category_user }}</div>
@@ -52,11 +52,11 @@
           </div>
 
           <!-- Employee Message -->
-          <div style="background: rgba(99, 102, 241, 0.08); border-left: 3px solid var(--primary); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
-            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.25rem;">
+          <div style="background: var(--navy-50); border-left: 3px solid var(--navy); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--navy); margin-bottom: 0.25rem;">
               Employee Clarification Message:
             </div>
-            <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">
+            <div style="font-size: 0.95rem; color: var(--text-main); line-height: 1.4;">
               "{{ q.message }}"
             </div>
           </div>
@@ -65,12 +65,12 @@
             <!-- Admin Response Form -->
             <form method="POST" action="{{ url_for('admin_resolve_query', query_id=q.id) }}" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
               <div class="form-group">
-                <label class="form-label" for="resolution_reason_{{ q.id }}">Mandatory Decision Reason / Message to Employee <span style="color: #f43f5e;">*</span></label>
+                <label class="form-label" for="resolution_reason_{{ q.id }}">Mandatory Decision Reason / Message to Employee <span class="text-required">*</span></label>
                 <textarea id="resolution_reason_{{ q.id }}" name="resolution_reason" class="form-control" rows="2" required placeholder="State why this rejection is being upheld or overturned..."></textarea>
               </div>
 
               <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                <button type="submit" name="resolution" value="overturn" class="btn btn-success" style="flex: 1;">
+                <button type="submit" name="resolution" value="overturn" class="btn btn-primary" style="flex: 1;">
                   ✓ Overturn Rejection (Approve Claim)
                 </button>
                 <button type="submit" name="resolution" value="uphold" class="btn btn-danger" style="flex: 1;">
@@ -81,7 +81,7 @@
           {% else %}
             <!-- Past resolution info -->
             <div style="border-top: 1px solid var(--border-subtle); padding-top: 1rem; font-size: 0.9rem;">
-              <div style="font-weight: 700; color: #fff;">
+              <div style="font-weight: 700; color: var(--navy);">
                 Resolution: {{ q.status | upper }}
               </div>
               <div style="color: var(--text-muted); margin-top: 0.25rem;">
@@ -104,8 +104,8 @@
 
 <!-- All Auto-Rejected Receipts Section -->
 <div class="card" style="padding: 0;">
-  <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle);">
-    <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff;">
+  <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-subtle); background: var(--peach-50);">
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--navy);">
       All Auto-Rejected Receipts ({{ rejected_receipts|length }})
     </h2>
   </div>
