@@ -56,14 +56,17 @@ def init_db(db_or_path=None):
     if should_close:
         conn.close()
 
-# SPEC section 6 required columns
+# SPEC s6 required receipts columns
 _REQUIRED_RECEIPT_COLS = {
     "id", "user_id", "file_path", "file_hash", "source_type",
-    "category_user", "category_model", "context", "attendees",
+    "category_user", "claimed_amount", "claimed_invoice_no",
+    "category_model", "context", "attendees",
     "is_client_related", "client_name", "merchant", "city", "country",
     "tier", "issue_date", "unique_id", "currency",
-    "amount_original", "fx_rate", "amount_base",
+    "amount_original", "accepted_amount", "amount_source",
+    "fx_rate", "fx_rate_date", "amount_base",
     "subtotal", "tax", "discount", "shipping", "nights",
+    "ocr_amount", "ocr_invoice_no", "ocr_text",
     "items_json", "conf_json", "extraction_json",
     "status", "flags_json", "missing_fields_json",
     "dup_group_id", "uploaded_at", "is_seeded",
@@ -127,26 +130,33 @@ def set_setting(key, value, db=None):
     if close_db:
         db.close()
 
-def get_fx_rate(currency, db=None):
+def get_fx_rate(currency, base="INR", db=None):
+    """Return (rate_to_base, fetched_at) or (None, None).
+    rate_to_base means: 1 `base` = rate_to_base units of `currency`.
+    """
     close_db = False
     if db is None:
         db = get_db()
         close_db = True
     curr_upper = (currency or "").upper()
+    base_upper = (base or "INR").upper()
     try:
-        row = db.execute("SELECT rate_to_inr, set_date FROM fx_rates WHERE currency = ?", (curr_upper,)).fetchone()
+        row = db.execute(
+            "SELECT rate_to_base, fetched_at FROM fx_rates WHERE currency = ? AND base = ?",
+            (curr_upper, base_upper)
+        ).fetchone()
         if row:
-            return float(row["rate_to_inr"]), row["set_date"]
+            return float(row["rate_to_base"]), row["fetched_at"]
     except sqlite3.OperationalError:
         pass
     finally:
         if close_db:
             db.close()
 
-    # Built-in static fallbacks from policy
+    # First-run static fallbacks (SPEC s5 / POLICY.md s7)
     static_defaults = {
-        "INR": (1.0, "2026-10-17"),
-        "MYR": (23.4, "2026-10-17"),
-        "USD": (96.5, "2026-10-17")
+        ("INR", "INR"): (1.0,  "2026-10-17"),
+        ("MYR", "INR"): (23.4, "2026-10-17"),
+        ("USD", "INR"): (96.5, "2026-10-17"),
     }
-    return static_defaults.get(curr_upper, (None, None))
+    return static_defaults.get((curr_upper, base_upper), (None, None))

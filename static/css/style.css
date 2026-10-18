@@ -381,3 +381,15 @@ body {
   text-decoration: underline;
   margin: 0 0.5rem;
 }
+
+/* Fixed dimensions for Admin Review buttons (SPEC s3) */
+.btn-review {
+  width: 120px !important;
+  height: 36px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+}

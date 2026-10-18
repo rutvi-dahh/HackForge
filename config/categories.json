@@ -4,11 +4,20 @@
     "Travel",
     "Accommodation",
     "Equipment",
+    "Education",
     "Miscellaneous"
   ],
   "sample_data_mapping": {
-    "Furniture": "Equipment",
-    "Technology": "Equipment",
+    "Furniture":       "Equipment",
+    "Technology":      "Equipment",
     "Office Supplies": "Miscellaneous"
+  },
+  "keyword_map": {
+    "Food":          ["restaurant", "cafe", "food", "meal", "dining", "lunch", "dinner", "breakfast", "canteen", "snack"],
+    "Accommodation": ["hotel", "lodge", "hostel", "inn", "resort", "motel", "accommodation", "lodging"],
+    "Travel":        ["petrol", "fuel", "airline", "flight", "taxi", "cab", "toll", "parking", "train", "bus", "ferry", "transport"],
+    "Equipment":     ["electronics", "furniture", "hardware", "device", "laptop", "computer", "monitor", "printer", "supplies", "tool"],
+    "Education":     ["course", "exam", "certification", "training", "book", "seminar", "workshop", "tuition", "tutorial"],
+    "Miscellaneous": []
   }
 }

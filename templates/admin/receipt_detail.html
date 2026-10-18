@@ -20,11 +20,25 @@
   </div>
   <div style="display: flex; gap: 0.5rem;">
     <a href="{{ url_for('admin_queue') }}" class="btn btn-secondary">&larr; Back to Queue</a>
-    <a href="{{ url_for('view_receipt_file', receipt_id=receipt.id) }}" target="_blank" class="btn btn-primary">
-      👁 View Original Receipt File
-    </a>
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('receiptModal').showModal()">
+      👁 View Receipt
+    </button>
   </div>
 </div>
+
+<dialog id="receiptModal" style="max-width: 90vw; max-height: 90vh; width: 850px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
+    <h3 style="margin: 0; font-size: 1.15rem;">Receipt File #{{ receipt.id }}</h3>
+    <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem;" onclick="document.getElementById('receiptModal').close()">✕ Close</button>
+  </div>
+  <div style="text-align: center; overflow: auto; max-height: calc(85vh - 80px);">
+    {% if receipt.source_type == 'pdf' or (receipt.file_path and receipt.file_path.endswith('.pdf')) %}
+      <embed src="{{ url_for('view_receipt_file', receipt_id=receipt.id) }}" type="application/pdf" width="100%" height="600px" style="border: none; border-radius: var(--radius-md);" />
+    {% else %}
+      <img src="{{ url_for('view_receipt_file', receipt_id=receipt.id) }}" alt="Receipt" style="max-width: 100%; height: auto; border-radius: var(--radius-md); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5);" />
+    {% endif %}
+  </div>
+</dialog>
 
 <div class="detail-grid">
   <!-- Left Column: Receipt Data & Approval Form -->
@@ -72,6 +86,16 @@
         <div>
           <div class="form-text">Original Stated Total</div>
           <div style="font-weight: 600;">{{ "{:,.2f}".format(receipt.amount_original or 0.0) }} {{ receipt.currency }}</div>
+        </div>
+        <div>
+          <div class="form-text">Claimed vs Accepted Amount</div>
+          <div style="font-weight: 600;">
+            {% if receipt.claimed_amount %}
+              Typed: {{ "{:,.2f}".format(receipt.claimed_amount) }} {{ receipt.currency }} &bull;
+            {% endif %}
+            Accepted: {{ "{:,.2f}".format(receipt.accepted_amount or receipt.amount_original or 0.0) }} {{ receipt.currency }}
+            <span style="font-size: 0.75rem; color: var(--text-dim);">({{ receipt.amount_source or 'model' }})</span>
+          </div>
         </div>
         <div>
           <div class="form-text">Converted Base Amount</div>
@@ -128,10 +152,10 @@
         Administrator Decision
       </h3>
       <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-        Every approval or denial requires a non-empty written reason that will be logged in the permanent audit trail.
+        Approve needs no reason. Deny opens a popup asking for the reason of rejection.
       </p>
 
-      <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}">
+      <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}" id="decisionForm">
         <div class="form-group">
           <label class="form-label" for="category_override">Admin Category Override (Optional)</label>
           <select id="category_override" name="category_override" class="form-control">
@@ -140,25 +164,48 @@
             <option value="Travel">Override to: Travel</option>
             <option value="Accommodation">Override to: Accommodation</option>
             <option value="Equipment">Override to: Equipment</option>
+            <option value="Education">Override to: Education</option>
             <option value="Miscellaneous">Override to: Miscellaneous</option>
           </select>
           <div class="form-text">You may reclassify this expense if the employee incorrectly categorized it.</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="reason">Written Decision Reason <span style="color: #f43f5e;">*</span></label>
-          <textarea id="reason" name="reason" class="form-control" rows="3" required placeholder="Mandatory explanation for approval or denial..."></textarea>
+          <label class="form-label" for="reason">Written Notes (Optional for Approval)</label>
+          <textarea id="reason" name="reason" class="form-control" rows="2" placeholder="Optional audit explanation..."></textarea>
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
           <button type="submit" name="decision" value="approved" class="btn btn-success" style="flex: 1;">
             ✓ Approve Claim
           </button>
-          <button type="submit" name="decision" value="denied" class="btn btn-danger" style="flex: 1;">
-            ✕ Deny Claim
+          <button type="button" class="btn btn-danger" style="flex: 1;" onclick="document.getElementById('denyModal').showModal()">
+            ✕ Deny Claim...
           </button>
         </div>
       </form>
+
+      <!-- Deny Reason Modal Dialog -->
+      <dialog id="denyModal" style="max-width: 500px; width: 90vw; background: var(--bg-card); border: 1px solid #f43f5e; border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);">
+        <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}">
+          <input type="hidden" name="decision" value="denied">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; color: #f43f5e; font-size: 1.1rem;">Deny Receipt #{{ receipt.id }}</h3>
+            <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.5rem;" onclick="document.getElementById('denyModal').close()">✕</button>
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1rem;">
+            A written reason is required to deny this reimbursement.
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="deny_reason">Reason for Denial <span style="color: #f43f5e;">*</span></label>
+            <textarea id="deny_reason" name="reason" class="form-control" rows="3" required placeholder="Specify why this claim is denied..."></textarea>
+          </div>
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1rem;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('denyModal').close()">Cancel</button>
+            <button type="submit" class="btn btn-danger">Confirm Denial</button>
+          </div>
+        </form>
+      </dialog>
     </div>
   </div>
 

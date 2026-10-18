@@ -56,23 +56,45 @@ def evaluate_receipt_rules(
     conf = receipt_data.get("conf") or {}
     items = receipt_data.get("items") or []
     
-    # 0. Currency and City / Tier resolution
+    # 0. Self-verification (voting over user, model, reader 2)
+    ocr_text = receipt_data.get("_ocr_text") or receipt_data.get("ocr_text") or ""
+    ocr_parsed = {
+        "amount": receipt_data.get("ocr_amount"),
+        "invoice_no": receipt_data.get("ocr_invoice_no")
+    }
+    if not ocr_parsed["amount"] and not ocr_parsed["invoice_no"] and ocr_text:
+        from services.extractor import parse_ocr_fields
+        ocr_parsed = parse_ocr_fields(ocr_text)
+
+    from services.verify import verify_receipt
+    verify_res = verify_receipt(
+        user_inputs=user_inputs,
+        extracted=receipt_data,
+        ocr_parsed=ocr_parsed,
+        ocr_text=ocr_text
+    )
+
+    accepted_amount = verify_res.get("accepted_amount")
+    amount_source = verify_res.get("amount_source", "model")
+    if accepted_amount is not None:
+        amount_original = accepted_amount
+    else:
+        amount_original = receipt_data.get("total")
+        try:
+            amount_original = float(amount_original) if amount_original is not None else 0.0
+        except (ValueError, TypeError):
+            amount_original = 0.0
+
+    # Currency and City / Tier resolution
     raw_currency = receipt_data.get("currency")
     country = receipt_data.get("country")
     merchant = receipt_data.get("merchant")
     currency = resolve_currency(raw_currency, country=country, merchant=merchant)
-    
-    amount_original = receipt_data.get("total")
-    try:
-        amount_original = float(amount_original) if amount_original is not None else 0.0
-    except (ValueError, TypeError):
-        amount_original = 0.0
 
-    amount_base, fx_rate, set_date, curr_err = convert_to_base(amount_original, currency, db=db)
-    
+    amount_base, fx_rate, fx_rate_date, curr_err = convert_to_base(amount_original, currency, db=db)
+
     raw_city = receipt_data.get("city")
-    full_text = f"{merchant or ''} {raw_city or ''}"
-    canonical_city, tier, is_city_unclear = resolve_city_tier(raw_city, full_text=full_text)
+    canonical_city, tier, is_city_unclear = resolve_city_tier(raw_city, country=country, db=db)
 
     # -------------------------------------------------------------
     # 1. AUTO-REJECT (Stop at first auto-reject)
@@ -100,7 +122,15 @@ def evaluate_receipt_rules(
                 "tier": tier,
                 "currency": currency,
                 "amount_original": amount_original,
+                "accepted_amount": accepted_amount if accepted_amount is not None else amount_original,
+                "amount_source": amount_source,
+                "claimed_amount": user_inputs.get("claimed_amount"),
+                "claimed_invoice_no": user_inputs.get("claimed_invoice_no"),
+                "ocr_amount": ocr_parsed.get("amount"),
+                "ocr_invoice_no": ocr_parsed.get("invoice_no"),
+                "ocr_text": verify_res.get("masked_ocr_text", ocr_text),
                 "fx_rate": fx_rate or 1.0,
+                "fx_rate_date": fx_rate_date,
                 "amount_base": amount_base or 0.0,
                 "nights": receipt_data.get("nights"),
                 "dup_group_id": None,
@@ -129,7 +159,15 @@ def evaluate_receipt_rules(
                 "tier": tier,
                 "currency": currency,
                 "amount_original": amount_original,
+                "accepted_amount": accepted_amount if accepted_amount is not None else amount_original,
+                "amount_source": amount_source,
+                "claimed_amount": user_inputs.get("claimed_amount"),
+                "claimed_invoice_no": user_inputs.get("claimed_invoice_no"),
+                "ocr_amount": ocr_parsed.get("amount"),
+                "ocr_invoice_no": ocr_parsed.get("invoice_no"),
+                "ocr_text": verify_res.get("masked_ocr_text", ocr_text),
                 "fx_rate": fx_rate or 1.0,
+                "fx_rate_date": fx_rate_date,
                 "amount_base": amount_base or 0.0,
                 "nights": receipt_data.get("nights"),
                 "dup_group_id": None,
@@ -190,7 +228,15 @@ def evaluate_receipt_rules(
             "tier": tier,
             "currency": currency,
             "amount_original": amount_original,
+            "accepted_amount": accepted_amount if accepted_amount is not None else amount_original,
+            "amount_source": amount_source,
+            "claimed_amount": user_inputs.get("claimed_amount"),
+            "claimed_invoice_no": user_inputs.get("claimed_invoice_no"),
+            "ocr_amount": ocr_parsed.get("amount"),
+            "ocr_invoice_no": ocr_parsed.get("invoice_no"),
+            "ocr_text": verify_res.get("masked_ocr_text", ocr_text),
             "fx_rate": fx_rate or 1.0,
+            "fx_rate_date": fx_rate_date,
             "amount_base": amount_base or 0.0,
             "nights": receipt_data.get("nights"),
             "dup_group_id": None,
@@ -201,6 +247,13 @@ def evaluate_receipt_rules(
     # 3. FLAGS (Collect all that apply)
     # -------------------------------------------------------------
     flags = []
+
+    # Verification flags from voting (AMOUNT_MISMATCH, INVOICE_ID_MISMATCH, EXTRACTION_UNCERTAIN, CATEGORY_MISMATCH)
+    for vf in verify_res.get("flags", []):
+        vf_copy = dict(vf)
+        if vf_copy.get("code") in ("AMOUNT_MISMATCH", "EXTRACTION_UNCERTAIN", "CATEGORY_MISMATCH"):
+            vf_copy["amount_affected"] = round(float(vf_copy.get("amount_affected", 0.0)) * (fx_rate or 1.0), 2)
+        flags.append(vf_copy)
 
     # A) ITEMS_UNCLEAR: items_readable false, or no line items
     items_readable = receipt_data.get("items_readable", True)
@@ -222,8 +275,6 @@ def evaluate_receipt_rules(
         shipping = float(receipt_data.get("shipping") or 0.0)
         
         # Stated items sum comparison:
-        # If tax/discount/shipping are explicit, computed_total = item_sum - discount + shipping + tax
-        # If no explicit tax/discount but items sum differs from total:
         computed_total = item_sum - discount + shipping + (tax if tax > 0 and item_sum + tax <= amount_original + 1 else 0)
         if tax > 0 and abs(item_sum + tax - amount_original) < abs(item_sum - amount_original):
             diff = abs(item_sum + tax - amount_original)
@@ -231,7 +282,8 @@ def evaluate_receipt_rules(
             diff = abs(item_sum - amount_original)
 
         rounding_tol = max(
-            policy.get("rounding_tolerance", {}).get("min_inr", 1.0),
+            policy.get("rounding_tolerance", {}).get("min_base_currency",
+                policy.get("rounding_tolerance", {}).get("min_inr", 1.0)),  # backward compat
             policy.get("rounding_tolerance", {}).get("percent", 0.01) * amount_original
         )
         if diff > rounding_tol:
@@ -242,15 +294,7 @@ def evaluate_receipt_rules(
                 "message": f"Line items sum ({item_sum:.2f}) differs from stated total ({amount_original:.2f}) by {diff:.2f} (exceeds rounding tolerance {rounding_tol:.2f})."
             })
 
-    # C) CATEGORY_MISMATCH: user vs model category
-    model_category = receipt_data.get("model_category")
-    if model_category and user_category and model_category.lower() != user_category.lower():
-        flags.append({
-            "code": "CATEGORY_MISMATCH",
-            "clause": "docs/POLICY.md Section 3 & 10",
-            "amount_affected": amount_base,
-            "message": f"User categorized expense as '{user_category}', but reader classified items as '{model_category}'."
-        })
+    # C) CATEGORY_MISMATCH: evaluated via 3-way voting in verify_receipt above
 
     # D) ACCOMMODATION_OFFICE: Accommodation with Office context
     context = user_inputs.get("context", "Trip")
@@ -406,6 +450,15 @@ def evaluate_receipt_rules(
                 "amount_affected": round(amount_base - misc_limit, 2),
                 "message": f"Miscellaneous receipt amount: ₹{amount_base:,.2f} exceeds per-receipt limit of ₹{misc_limit:,.2f}."
             })
+    elif user_category == "Education":
+        edu_limit = float(limits_cfg.get("education", {}).get("per_receipt", 25000))
+        if amount_base > edu_limit:
+            flags.append({
+                "code": "LIMIT_RECEIPT",
+                "clause": "docs/POLICY.md Section 9",
+                "amount_affected": round(amount_base - edu_limit, 2),
+                "message": f"Education receipt amount: ₹{amount_base:,.2f} exceeds per-receipt limit of ₹{edu_limit:,.2f}."
+            })
 
     # 2. Per-day & Cumulative-monthly limits evaluated against database ledger
     user_id = user_inputs.get("user_id")
@@ -485,7 +538,15 @@ def evaluate_receipt_rules(
         "tier": tier,
         "currency": currency,
         "amount_original": amount_original,
+        "accepted_amount": accepted_amount if accepted_amount is not None else amount_original,
+        "amount_source": amount_source,
+        "claimed_amount": user_inputs.get("claimed_amount"),
+        "claimed_invoice_no": user_inputs.get("claimed_invoice_no"),
+        "ocr_amount": ocr_parsed.get("amount"),
+        "ocr_invoice_no": ocr_parsed.get("invoice_no"),
+        "ocr_text": verify_res.get("masked_ocr_text", ocr_text),
         "fx_rate": fx_rate or 1.0,
+        "fx_rate_date": fx_rate_date,
         "amount_base": amount_base or 0.0,
         "nights": receipt_data.get("nights"),
         "dup_group_id": dup_group_id,

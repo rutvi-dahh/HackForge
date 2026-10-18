@@ -121,7 +121,15 @@ def upload_receipt():
         context = request.form.get("context", "Trip")
         attendees = request.form.get("attendees", "1")
         is_client_related = 1 if request.form.get("is_client_related") else 0
-        client_name = request.form.get("client_name", "").strip()
+        client_name = request.form.get("client_name", "").strip() if is_client_related else None
+        claimed_amount_raw = request.form.get("claimed_amount")
+        claimed_invoice_no = request.form.get("claimed_invoice_no", "").strip() or None
+        claimed_amount = None
+        if claimed_amount_raw not in (None, ""):
+            try:
+                claimed_amount = float(claimed_amount_raw)
+            except (ValueError, TypeError):
+                claimed_amount = None
 
         db = get_db()
 
@@ -132,6 +140,8 @@ def upload_receipt():
         user_inputs = {
             "user_id": session["user_id"],
             "category": user_category,
+            "claimed_amount": claimed_amount,
+            "claimed_invoice_no": claimed_invoice_no,
             "context": context,
             "attendees": attendees,
             "is_client_related": is_client_related,
@@ -154,28 +164,44 @@ def upload_receipt():
         extraction_json = json.dumps(extracted)
 
         # Insert receipt record
+        ocr_text = eval_res.get("ocr_text") or extracted.get("_ocr_text", "")
+        ocr_amount = eval_res.get("ocr_amount")
+        ocr_invoice_no = eval_res.get("ocr_invoice_no")
+
         cur = db.execute(
             """INSERT INTO receipts (
-                user_id, file_path, file_hash, source_type, category_user, category_model,
-                context, attendees, is_client_related, client_name, merchant, city, country,
-                tier, issue_date, unique_id, currency, amount_original, fx_rate, amount_base,
-                subtotal, tax, discount, shipping, nights, items_json, conf_json, extraction_json,
+                user_id, file_path, file_hash, source_type, category_user, claimed_amount, claimed_invoice_no,
+                category_model, context, attendees, is_client_related, client_name, merchant, city, country,
+                tier, issue_date, unique_id, currency,
+                amount_original, accepted_amount, amount_source,
+                fx_rate, fx_rate_date, amount_base,
+                subtotal, tax, discount, shipping, nights,
+                ocr_text, ocr_amount, ocr_invoice_no,
+                items_json, conf_json, extraction_json,
                 status, flags_json, missing_fields_json, dup_group_id, uploaded_at, is_seeded
             ) VALUES (
-                ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
                 ?, ?, ?, ?, datetime('now'), 0
             )""",
             (
-                session["user_id"], str(saved_path), file_hash, source_type, user_category, extracted.get("model_category"),
-                context, int(attendees) if attendees and attendees.isdigit() else 1, is_client_related, client_name,
+                session["user_id"], str(saved_path), file_hash, source_type, user_category, claimed_amount, claimed_invoice_no,
+                extracted.get("model_category"), context, int(attendees) if attendees and str(attendees).isdigit() else 1,
+                is_client_related, client_name,
                 eval_res.get("merchant") or extracted.get("merchant"), eval_res.get("city"), eval_res.get("country"),
                 eval_res.get("tier"), extracted.get("issue_date"), extracted.get("unique_id"), eval_res.get("currency"),
-                eval_res.get("amount_original"), eval_res.get("fx_rate"), eval_res.get("amount_base"),
+                eval_res.get("amount_original"), eval_res.get("accepted_amount", eval_res.get("amount_original")), eval_res.get("amount_source", "model"),
+                eval_res.get("fx_rate"), eval_res.get("fx_rate_date"), eval_res.get("amount_base"),
                 extracted.get("subtotal"), extracted.get("tax"), extracted.get("discount"), extracted.get("shipping"),
-                eval_res.get("nights"), items_json, conf_json, extraction_json,
+                eval_res.get("nights"),
+                ocr_text or None, ocr_amount, ocr_invoice_no,
+                items_json, conf_json, extraction_json,
                 status, flags_json, missing_fields_json, eval_res.get("dup_group_id")
             )
         )
@@ -327,6 +353,9 @@ def employee_complete_info(receipt_id):
             issue_date = ?,
             unique_id = ?,
             amount_original = ?,
+            accepted_amount = ?,
+            amount_source = ?,
+            claimed_amount = ?,
             currency = ?,
             fx_rate = ?,
             amount_base = ?,
@@ -343,6 +372,9 @@ def employee_complete_info(receipt_id):
             extraction.get("issue_date"),
             extraction.get("unique_id"),
             eval_res.get("amount_original"),
+            eval_res.get("amount_original"),  # accepted_amount = model value after user correction
+            "user",                            # amount_source = user (they corrected it)
+            request.form.get("total") or receipt["claimed_amount"],  # preserve user's claimed amount
             eval_res.get("currency"),
             eval_res.get("fx_rate"),
             eval_res.get("amount_base"),
@@ -520,6 +552,10 @@ def admin_receipt_detail(receipt_id):
 @admin_required
 def admin_decide_receipt(receipt_id):
     decision = request.form.get("decision", "").strip().lower()
+    if decision == "approve":
+        decision = "approved"
+    elif decision == "deny":
+        decision = "denied"
     reason = request.form.get("reason", "").strip()
     category_override = request.form.get("category_override", "").strip()
 
@@ -527,8 +563,8 @@ def admin_decide_receipt(receipt_id):
         flash("Invalid decision choice.", "danger")
         return redirect(url_for("admin_receipt_detail", receipt_id=receipt_id))
 
-    if not reason:
-        flash("A non-empty written reason is required for every decision.", "danger")
+    if decision == "denied" and not reason:
+        flash("A written reason is required when denying a receipt.", "danger")
         return redirect(url_for("admin_receipt_detail", receipt_id=receipt_id))
 
     db = get_db()
@@ -543,7 +579,7 @@ def admin_decide_receipt(receipt_id):
     db.execute(
         """INSERT INTO decisions (receipt_id, admin_id, decision, reason, created_at)
            VALUES (?, ?, ?, ?, datetime('now'))""",
-        (receipt_id, session["user_id"], decision, reason)
+        (receipt_id, session["user_id"], decision, reason or None)
     )
 
     db.execute(
@@ -553,7 +589,7 @@ def admin_decide_receipt(receipt_id):
     db.commit()
     db.close()
 
-    flash(f"Receipt #{receipt_id} has been {decision}. Decision reason logged.", "success")
+    flash(f"Receipt #{receipt_id} has been {decision}.", "success")
     return redirect(url_for("admin_queue"))
 
 @app.route("/admin/rejected")
@@ -599,8 +635,8 @@ def admin_resolve_query(query_id):
         flash("Invalid query resolution.", "danger")
         return redirect(url_for("admin_rejected_queries"))
 
-    if not reason:
-        flash("A written reason is required to resolve employee queries.", "danger")
+    if resolution == "uphold" and not reason:
+        flash("A written reason is required when upholding a rejection.", "danger")
         return redirect(url_for("admin_rejected_queries"))
 
     db = get_db()
@@ -688,8 +724,9 @@ def admin_update_settings():
 @admin_required
 def admin_update_fx_rate():
     currency = request.form.get("currency", "").strip().upper()
-    rate = request.form.get("rate_to_inr", "").strip()
-    set_date = request.form.get("set_date", "").strip() or datetime.date.today().isoformat()
+    rate = request.form.get("rate_to_base", "").strip() or request.form.get("rate_to_inr", "").strip()
+    fetched_at = request.form.get("fetched_at", "").strip() or datetime.date.today().isoformat()
+    base = request.form.get("base", "INR").strip().upper() or "INR"
 
     if not currency or not rate:
         flash("Currency and exchange rate are required.", "warning")
@@ -703,15 +740,18 @@ def admin_update_fx_rate():
 
     db = get_db()
     db.execute(
-        """INSERT INTO fx_rates (currency, rate_to_inr, set_date)
-           VALUES (?, ?, ?)
-           ON CONFLICT(currency) DO UPDATE SET rate_to_inr = excluded.rate_to_inr, set_date = excluded.set_date""",
-        (currency, rate_val, set_date)
+        """INSERT INTO fx_rates (currency, base, rate_to_base, fetched_at, source)
+           VALUES (?, ?, ?, ?, 'admin')
+           ON CONFLICT(currency, base) DO UPDATE SET
+             rate_to_base = excluded.rate_to_base,
+             fetched_at   = excluded.fetched_at,
+             source       = 'admin'""",
+        (currency, base, rate_val, fetched_at)
     )
     db.commit()
     db.close()
 
-    flash(f"Exchange rate for {currency} updated to {rate_val}.", "success")
+    flash(f"Exchange rate for {currency}/{base} updated to {rate_val}.", "success")
     return redirect(url_for("admin_settings"))
 
 @app.route("/admin/export/csv")

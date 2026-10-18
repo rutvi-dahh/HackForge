@@ -140,3 +140,34 @@ def test_rejection_query_and_overturn_flow(client):
     # Verify receipt is now approved
     res_csv = client.get("/admin/export/csv")
     assert b"2420.0" in res_csv.data
+
+def test_decision_reason_rules(client):
+    """SPEC s9: approve works with no reason; deny and uphold are rejected without a reason."""
+    # 1. Setup receipt awaiting admin review
+    client.post("/login", data={"email": "e1@company.com", "password": "emp123"}, follow_redirects=True)
+    with open("sample_data/planted/hotel_ok.png", "rb") as fp:
+        img_bytes = fp.read()
+    client.post("/upload", data={
+        "receipt_file": (io.BytesIO(img_bytes), "hotel_ok.png"),
+        "category": "Accommodation",
+        "context": "Trip"
+    }, follow_redirects=True)
+
+    # 2. Login as admin
+    client.get("/logout")
+    client.post("/login", data={"email": "admin@company.com", "password": "admin123"}, follow_redirects=True)
+
+    # Deny without reason -> rejected / flashes error
+    res_deny_no_reason = client.post("/admin/receipt/1/decide", data={
+        "decision": "denied",
+        "reason": ""
+    }, follow_redirects=True)
+    assert b"written reason is required when denying" in res_deny_no_reason.data
+
+    # Approve without reason -> succeeds!
+    res_approve_no_reason = client.post("/admin/receipt/1/decide", data={
+        "decision": "approved",
+        "reason": ""
+    }, follow_redirects=True)
+    assert res_approve_no_reason.status_code == 200
+    assert b"approved" in res_approve_no_reason.data.lower()

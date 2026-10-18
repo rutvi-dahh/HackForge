@@ -118,18 +118,35 @@ def seed_database():
         conf_json = json.dumps(extracted.get("conf", {}))
         extraction_json = json.dumps(extracted)
 
+        ocr_text = extracted.get("_ocr_text", None)
+        ocr_amount = None
+        ocr_invoice_no = None
+        if ocr_text:
+            from services.extractor import parse_ocr_fields
+            ocr_fields = parse_ocr_fields(ocr_text)
+            ocr_amount = ocr_fields.get("amount")
+            ocr_invoice_no = ocr_fields.get("invoice_no")
+
         cur = db.execute(
             """INSERT INTO receipts (
                 user_id, file_path, file_hash, source_type, category_user, category_model,
                 context, attendees, is_client_related, client_name, merchant, city, country,
-                tier, issue_date, unique_id, currency, amount_original, fx_rate, amount_base,
-                subtotal, tax, discount, shipping, nights, items_json, conf_json, extraction_json,
+                tier, issue_date, unique_id, currency,
+                amount_original, accepted_amount, amount_source,
+                fx_rate, fx_rate_date, amount_base,
+                subtotal, tax, discount, shipping, nights,
+                ocr_text, ocr_amount, ocr_invoice_no,
+                items_json, conf_json, extraction_json,
                 status, flags_json, missing_fields_json, dup_group_id, uploaded_at, is_seeded
             ) VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
                 ?, ?, ?, ?, datetime('now'), ?
             )""",
             (
@@ -137,9 +154,12 @@ def seed_database():
                 context, attendees, 1 if client else 0, client,
                 eval_res.get("merchant") or extracted.get("merchant"), eval_res.get("city"), eval_res.get("country"),
                 eval_res.get("tier"), extracted.get("issue_date"), extracted.get("unique_id"), eval_res.get("currency"),
-                eval_res.get("amount_original"), eval_res.get("fx_rate"), eval_res.get("amount_base"),
+                eval_res.get("amount_original"), eval_res.get("amount_original"), "model",
+                eval_res.get("fx_rate"), eval_res.get("fx_rate_date"), eval_res.get("amount_base"),
                 extracted.get("subtotal"), extracted.get("tax"), extracted.get("discount"), extracted.get("shipping"),
-                eval_res.get("nights"), items_json, conf_json, extraction_json,
+                eval_res.get("nights"),
+                ocr_text, ocr_amount, ocr_invoice_no,
+                items_json, conf_json, extraction_json,
                 eval_res["status"], flags_json, missing_fields_json, eval_res.get("dup_group_id"),
                 is_seeded
             )
@@ -184,10 +204,12 @@ def seed_database():
             """INSERT INTO receipts (
                 user_id, file_path, file_hash, source_type, category_user, category_model,
                 context, attendees, merchant, city, country, tier, issue_date, unique_id,
-                currency, amount_original, fx_rate, amount_base, status, flags_json,
-                missing_fields_json, uploaded_at, is_seeded
+                currency, amount_original, accepted_amount, amount_source,
+                fx_rate, fx_rate_date, amount_base,
+                status, flags_json, missing_fields_json, uploaded_at, is_seeded
             ) VALUES (?, ?, ?, 'image', 'Food', 'Food', 'Trip', 5, ?, 'Bengaluru', 'India', 'A',
-                      ?, ?, 'INR', 4000.0, 1.0, 4000.0, ?, ?, '[]', datetime('now'), 1)""",
+                      ?, ?, 'INR', 4000.0, 4000.0, 'model', 1.0, NULL, 4000.0,
+                      ?, ?, '[]', datetime('now'), 1)""",
             (
                 user_id_map["E1"], str(UPLOAD_DIR / f"cater_{i}.png"), f"dummy_hash_{i}",
                 f"Team Lunch Caterers {i}", day_str, f"CAT-2018-0{i}", eval_res["status"],

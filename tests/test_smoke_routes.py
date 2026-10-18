@@ -33,7 +33,7 @@ def client(tmp_path):
     emp_id = db.execute("SELECT id FROM users WHERE email='emp@test.com'").fetchone()["id"]
 
     # Seed fx rate
-    db.execute("INSERT OR IGNORE INTO fx_rates (currency,rate_to_inr,set_date) VALUES ('INR',1.0,'2026-01-01')")
+    db.execute("INSERT OR IGNORE INTO fx_rates (currency,base,rate_to_base,fetched_at,source) VALUES ('INR','INR',1.0,'2026-01-01','fallback')")
     db.commit()
 
     # One VERIFIED receipt
@@ -49,12 +49,13 @@ def client(tmp_path):
     db.execute(
         """INSERT INTO receipts (user_id,file_path,file_hash,source_type,category_user,context,
            attendees,merchant,city,country,tier,issue_date,unique_id,currency,amount_original,
-           fx_rate,amount_base,status,flags_json,missing_fields_json,uploaded_at,is_seeded)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
+           claimed_amount,accepted_amount,amount_source,fx_rate,fx_rate_date,amount_base,
+           status,flags_json,missing_fields_json,uploaded_at,is_seeded)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
         (emp_id, "/tmp/ok.png", "hash_ok", "image", "Accommodation", "Trip", 1,
          "Test Hotel", "Bengaluru", "India", "A", "2026-01-10", "INV-001",
-         "INR", 3000.0, 1.0, 3000.0, ev["status"],
-         _json.dumps(ev["flags"]), _json.dumps(ev["missing_fields"]))
+         "INR", 3000.0, 3000.0, 3000.0, "model", 1.0, "2026-01-10", 3000.0,
+         ev["status"], _json.dumps(ev["flags"]), _json.dumps(ev["missing_fields"]))
     )
     db.commit()
     ok_receipt_id = db.execute("SELECT id FROM receipts WHERE file_hash='hash_ok'").fetchone()["id"]
@@ -72,11 +73,12 @@ def client(tmp_path):
     db.execute(
         """INSERT INTO receipts (user_id,file_path,file_hash,source_type,category_user,context,
            attendees,merchant,city,country,tier,issue_date,unique_id,currency,amount_original,
-           fx_rate,amount_base,status,flags_json,missing_fields_json,extraction_json,uploaded_at,is_seeded)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
+           claimed_amount,accepted_amount,amount_source,fx_rate,fx_rate_date,amount_base,
+           status,flags_json,missing_fields_json,extraction_json,uploaded_at,is_seeded)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
         (emp_id, "/tmp/info.png", "hash_info", "image", "Food", "Trip", 1,
          "Blur Cafe", "Bengaluru", "India", "A", None, "BLUR-002",
-         "INR", None, 1.0, None, ev2["status"],
+         "INR", None, None, None, "user", 1.0, None, None, ev2["status"],
          _json.dumps(ev2["flags"]), _json.dumps(ev2["missing_fields"]),
          _json.dumps(extraction_info))
     )
@@ -97,11 +99,12 @@ def client(tmp_path):
     db.execute(
         """INSERT INTO receipts (user_id,file_path,file_hash,source_type,category_user,context,
            attendees,merchant,city,country,tier,issue_date,unique_id,currency,amount_original,
-           fx_rate,amount_base,status,flags_json,missing_fields_json,extraction_json,uploaded_at,is_seeded)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
+           claimed_amount,accepted_amount,amount_source,fx_rate,fx_rate_date,amount_base,
+           status,flags_json,missing_fields_json,extraction_json,uploaded_at,is_seeded)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'2026-01-10',1)""",
         (emp_id, "/tmp/rej.png", "hash_rej", "image", "Food", "Trip", 1,
          "The Pour House", "Bengaluru", "India", "A", "2026-01-10", "ALQ-003",
-         "INR", 800.0, 1.0, 800.0, ev3["status"],
+         "INR", 800.0, 800.0, 800.0, "model", 1.0, "2026-01-10", 800.0, ev3["status"],
          _json.dumps(ev3["flags"]), _json.dumps(ev3["missing_fields"]),
          _json.dumps(extraction_rej))
     )
