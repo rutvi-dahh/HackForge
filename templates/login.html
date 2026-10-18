@@ -59,7 +59,7 @@
   <div class="landing-brand-panel">
     <div class="landing-logo-container">
       {% if logo_url %}
-        <img src="{{ logo_url }}" alt="{{ company_name }}" class="landing-logo-img">
+        <img src="{{ logo_url }}" alt="{{ company_name }} Logo" class="landing-logo-img">
       {% else %}
         <svg class="landing-logo-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" fill="#F4D8C6" stroke="#002366" stroke-width="1.5"/>
@@ -68,7 +68,14 @@
         </svg>
       {% endif %}
     </div>
-    <h2 class="landing-brand-title">{{ company_name }}</h2>
+    <div class="landing-brand-title-wrap">
+      {% if wordmark_url %}
+        <img src="{{ wordmark_url }}" alt="{{ company_name }}" class="landing-wordmark-img">
+        <span style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0;">{{ company_name }}</span>
+      {% else %}
+        <h2 class="landing-brand-title">{{ company_name }}</h2>
+      {% endif %}
+    </div>
     <div class="landing-brand-divider"></div>
     <p class="landing-brand-tagline">AI reads. Code decides.</p>
   </div>

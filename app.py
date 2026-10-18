@@ -39,7 +39,7 @@ app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # 15 MB limit
 app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(days=30)
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["COMPANY_NAME"] = os.environ.get("COMPANY_NAME", "Receipt Graveyard")
+app.config["COMPANY_NAME"] = os.environ.get("COMPANY_NAME", "CORTEX")
 
 # Ensure database and initial data exist on startup
 init_db()
@@ -50,7 +50,7 @@ def allowed_file(filename):
 @app.context_processor
 def inject_global_settings():
     helpline = get_setting("HELPLINE_NUMBER", "1223334444")
-    company_name = os.environ.get("COMPANY_NAME") or app.config.get("COMPANY_NAME", "Receipt Graveyard")
+    company_name = os.environ.get("COMPANY_NAME") or app.config.get("COMPANY_NAME", "CORTEX")
 
     # Logo resolution: static/img/logo.svg wins over static/img/logo.png
     static_img_dir = BASE_DIR / "static" / "img"
@@ -67,12 +67,19 @@ def inject_global_settings():
         svg_data = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" fill="%23F4D8C6" stroke="%23002366" stroke-width="1.5"/><path d="M7 7H17M7 11H17M7 15H13" stroke="%23002366" stroke-width="2" stroke-linecap="round"/><path d="M15 15C16.5 15 17.5 16.5 17 18C15.5 18 14.5 16.5 15 15Z" fill="%23002366"/></svg>'
         favicon_url = f"data:image/svg+xml,{svg_data}"
 
+    wordmark_url = None
+    if (static_img_dir / "cortex_wordmark.png").exists():
+        wordmark_url = url_for("static", filename="img/cortex_wordmark.png")
+    elif (static_img_dir / "cortex.png").exists():
+        wordmark_url = url_for("static", filename="img/cortex.png")
+
     current_year = datetime.datetime.now().year
 
     return {
         "helpline_number": helpline,
         "company_name": company_name,
         "logo_url": logo_url,
+        "wordmark_url": wordmark_url,
         "favicon_url": favicon_url,
         "current_year": current_year,
     }

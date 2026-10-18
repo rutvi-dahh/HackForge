@@ -47,7 +47,7 @@ def test_login_page_brand_and_elements(client):
     html = res.get_data(as_text=True)
 
     # Contains company name
-    assert "Receipt Graveyard" in html
+    assert "CORTEX" in html
 
     # Contains <img> or inline <svg> brand mark
     assert ("<img" in html and "logo" in html) or "<svg" in html
@@ -63,7 +63,6 @@ def test_login_page_brand_and_elements(client):
     assert "Google" not in html
     assert "GitHub" not in html
     assert "Demo Login" not in html
-    assert "demo" not in html.lower() or "demo" in html.lower()  # strict check below:
     for forbidden in ["google", "github", "sign up", "create account", "demo login"]:
         assert forbidden not in html.lower()
 
@@ -83,23 +82,23 @@ def test_logged_in_page_brand_in_nav_footer_and_title(client):
 
     # Nav contains company name
     assert '<a href="/" class="nav-brand">' in html or 'nav-brand' in html
-    assert "Receipt Graveyard" in html
+    assert "CORTEX" in html
 
     # Title contains company name
     assert "<title>" in html
     title_start = html.find("<title>")
     title_end = html.find("</title>")
     title_text = html[title_start:title_end]
-    assert "Receipt Graveyard" in title_text
+    assert "CORTEX" in title_text
 
     # Footer contains company name
     assert 'class="footer"' in html
-    assert "Receipt Graveyard" in html
+    assert "CORTEX" in html
 
 
-def test_theme_css_defines_gold():
+def test_theme_css_defines_gold_and_table_header():
     """
-    theme.css defines --gold:#FFCE18.
+    theme.css defines --gold:#FFCE18 and applies gold to table th.
     """
     theme_path = os.path.join(os.path.dirname(__file__), "..", "static", "css", "theme.css")
     with open(theme_path, "r", encoding="utf-8") as f:
@@ -110,6 +109,8 @@ def test_theme_css_defines_gold():
     assert "--gold:#FFCE18" in clean_content
     assert "--gold-600:" in clean_content
     assert "--gold-100:" in clean_content
+    assert "tableth" in clean_content
+    assert "var(--gold)" in clean_content
 
 
 def test_changing_company_name_via_env(client, monkeypatch):
