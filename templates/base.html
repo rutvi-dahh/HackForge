@@ -69,7 +69,8 @@
     </div>
     <div style="margin-top: 0.4rem;">
       <a href="{{ url_for('policy_page') }}">Policy v3</a> &bull;
-      <a href="{{ url_for('help_page') }}">Help Desk & Guidelines</a>
+      <a href="{{ url_for('help_page') }}">Help Desk & Guidelines</a> &bull;
+      <span>Support Helpline: <strong>{{ helpline_number or '1223334444' }}</strong></span>
     </div>
   </footer>
   {% endblock %}

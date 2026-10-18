@@ -63,20 +63,35 @@
 
           {% if q.status == 'open' %}
             <!-- Admin Response Form -->
-            <form method="POST" action="{{ url_for('admin_resolve_query', query_id=q.id) }}" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+            <form method="POST" action="{{ url_for('admin_resolve_query', query_id=q.id) }}" id="resolveForm_{{ q.id }}" style="border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
               <div class="form-group">
                 <label class="form-label" for="resolution_reason_{{ q.id }}">Mandatory Decision Reason / Message to Employee <span class="text-required">*</span></label>
                 <textarea id="resolution_reason_{{ q.id }}" name="resolution_reason" class="form-control" rows="2" required placeholder="State why this rejection is being upheld or overturned..."></textarea>
               </div>
 
               <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                <button type="submit" name="resolution" value="overturn" class="btn btn-primary" style="flex: 1;">
+                <button type="button" class="btn btn-primary" style="flex: 1;" onclick="openOverturnModal({{ q.id }})">
                   ✓ Overturn Rejection (Approve Claim)
                 </button>
                 <button type="submit" name="resolution" value="uphold" class="btn btn-danger" style="flex: 1;">
                   ✕ Uphold Rejection
                 </button>
               </div>
+
+              <!-- Overturn Confirmation Dialog -->
+              <dialog id="overturnModal_{{ q.id }}" style="max-width: 500px; width: 90vw;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+                  <h3 style="margin: 0; font-size: 1.15rem; color: var(--navy);">Confirm Claim Approval</h3>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('overturnModal_{{ q.id }}').close()">✕</button>
+                </div>
+                <p style="font-size: 1rem; color: var(--text-main); margin-bottom: 1.5rem; line-height: 1.5;">
+                  Approve {{ q.currency or 'INR' }} {{ "{:,.2f}".format(q.amount_base or 0.0) }} for {{ q.user_name }} ({{ q.employee_code }})?
+                </p>
+                <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+                  <button type="button" class="btn btn-secondary" onclick="document.getElementById('overturnModal_{{ q.id }}').close()">Cancel</button>
+                  <button type="submit" form="resolveForm_{{ q.id }}" name="resolution" value="overturn" class="btn btn-primary">Yes, approve</button>
+                </div>
+              </dialog>
             </form>
           {% else %}
             <!-- Past resolution info -->
@@ -168,4 +183,16 @@
     </div>
   {% endif %}
 </div>
+
+<script>
+  function openOverturnModal(id) {
+    var txt = document.getElementById('resolution_reason_' + id);
+    if (txt && !txt.value.trim()) {
+      txt.focus();
+      alert('Please enter a decision reason before approving.');
+      return;
+    }
+    document.getElementById('overturnModal_' + id).showModal();
+  }
+</script>
 {% endblock %}

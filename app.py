@@ -45,6 +45,11 @@ init_db()
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+@app.context_processor
+def inject_global_settings():
+    helpline = get_setting("HELPLINE_NUMBER", "1223334444")
+    return {"helpline_number": helpline}
+
 # -------------------------------------------------------------
 # Common Routes & Auth
 # -------------------------------------------------------------
@@ -552,6 +557,13 @@ def admin_queue():
         for r in processed_rows:
             key = f"{r['user_name']} ({r['employee_code']})"
             groups.setdefault(key, []).append(r)
+    elif view_mode == "date":
+        # Flat table sorted by issue date newest first, tie-break: uploaded_at DESC
+        processed_rows.sort(
+            key=lambda r: (r.get("issue_date") or "", r.get("uploaded_at") or ""),
+            reverse=True
+        )
+        groups = {"All Claims by Date (Newest First)": processed_rows}
     else:
         for r in processed_rows:
             key = r["category_user"]
@@ -560,6 +572,7 @@ def admin_queue():
     return render_template(
         "admin/queue.html",
         groups=groups,
+        processed_rows=processed_rows,
         view_mode=view_mode
     )
 
@@ -637,7 +650,33 @@ def admin_decide_receipt(receipt_id):
     db.close()
 
     flash(f"Receipt #{receipt_id} has been {decision}.", "success")
+    if decision == "approved":
+        return redirect(url_for("admin_payment_page", receipt_id=receipt_id))
     return redirect(url_for("admin_queue"))
+
+@app.route("/admin/payment/<int:receipt_id>")
+@admin_required
+def admin_payment_page(receipt_id):
+    """Admin-only payment placeholder page shown after approval."""
+    db = get_db()
+    receipt = db.execute(
+        """SELECT r.*, u.name as user_name, u.employee_code
+           FROM receipts r
+           JOIN users u ON r.user_id = u.id
+           WHERE r.id = ?""",
+        (receipt_id,)
+    ).fetchone()
+    db.close()
+
+    if not receipt:
+        abort(404)
+
+    # Safe on refresh; redirects to /admin if claim is not approved
+    if receipt["status"] != "approved":
+        flash("Payment gateway is only accessible for approved claims.", "warning")
+        return redirect(url_for("admin_queue"))
+
+    return render_template("admin/payment.html", receipt=receipt)
 
 @app.route("/admin/rejected")
 @admin_required
@@ -656,7 +695,7 @@ def admin_rejected_queries():
 
     # All queries
     queries = db.execute(
-        """SELECT q.*, r.merchant, r.issue_date, r.amount_base, r.category_user, r.status as receipt_status,
+        """SELECT q.*, r.merchant, r.issue_date, r.amount_base, r.currency, r.category_user, r.status as receipt_status,
                   u.name as user_name, u.employee_code
            FROM queries q
            JOIN receipts r ON q.receipt_id = r.id
@@ -727,6 +766,8 @@ def admin_resolve_query(query_id):
     db.commit()
     db.close()
 
+    if new_query_status == "overturned":
+        return redirect(url_for("admin_payment_page", receipt_id=receipt_id))
     return redirect(url_for("admin_rejected_queries"))
 
 @app.route("/admin/settings")

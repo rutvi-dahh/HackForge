@@ -171,7 +171,7 @@
         </div>
 
         <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-          <button type="submit" name="decision" value="approved" class="btn btn-primary" style="flex: 1;">
+          <button type="button" class="btn btn-primary" style="flex: 1;" onclick="openApproveModal()">
             ✓ Approve Claim
           </button>
           <button type="button" class="btn btn-danger" style="flex: 1;" onclick="document.getElementById('denyModal').showModal()">
@@ -179,6 +179,35 @@
           </button>
         </div>
       </form>
+
+      <!-- Approve Confirmation Dialog -->
+      <dialog id="approveModal" style="max-width: 500px; width: 90vw;">
+        <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}" id="approveForm">
+          <input type="hidden" name="decision" value="approved">
+          <input type="hidden" name="category_override" id="approve_category_override" value="">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+            <h3 style="margin: 0; font-size: 1.15rem; color: var(--navy);">Confirm Claim Approval</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('approveModal').close()">✕</button>
+          </div>
+          <p style="font-size: 1rem; color: var(--text-main); margin-bottom: 1.5rem; line-height: 1.5;">
+            Approve {{ receipt.currency or 'INR' }} {{ "{:,.2f}".format(receipt.amount_base or 0.0) }} for {{ receipt.user_name }} ({{ receipt.employee_code }})?
+          </p>
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('approveModal').close()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Yes, approve</button>
+          </div>
+        </form>
+      </dialog>
+
+      <script>
+        function openApproveModal() {
+          var sel = document.getElementById('category_override');
+          if (sel) {
+            document.getElementById('approve_category_override').value = sel.value;
+          }
+          document.getElementById('approveModal').showModal();
+        }
+      </script>
 
       <!-- Deny Reason Modal Dialog (reason required only for rejection) -->
       <dialog id="denyModal" style="max-width: 500px; width: 90vw;">

@@ -10,11 +10,14 @@
   </div>
   <div style="display: flex; gap: 1rem; align-items: center;">
     <div class="toggle-group">
-      <a href="{{ url_for('admin_queue', view='category') }}" class="toggle-item {% if view_mode != 'employee' %}active{% endif %}">
-        Group by Category
+      <a href="{{ url_for('admin_queue', view='category') }}" class="toggle-item {% if view_mode == 'category' or not view_mode %}active{% endif %}">
+        By category
       </a>
       <a href="{{ url_for('admin_queue', view='employee') }}" class="toggle-item {% if view_mode == 'employee' %}active{% endif %}">
-        Group by Employee
+        By employee
+      </a>
+      <a href="{{ url_for('admin_queue', view='date') }}" class="toggle-item {% if view_mode == 'date' %}active{% endif %}">
+        By date
       </a>
     </div>
     <a href="{{ url_for('admin_export_csv') }}" class="btn btn-secondary btn-sm">

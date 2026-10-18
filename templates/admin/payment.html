@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Disbursement & Payment - Receipt Graveyard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Disbursement & Payment</h1>
+    <p class="page-subtitle">Approved Expense Claim #{{ receipt.id }} &bull; Ready for settlement</p>
+  </div>
+  <div>
+    <a href="{{ url_for('admin_queue') }}" class="btn btn-secondary">
+      &larr; Back to review queue
+    </a>
+  </div>
+</div>
+
+<div style="max-width: 720px; margin: 0 auto;">
+  <div class="card" style="border-top: 6px solid var(--status-verified-border);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <span class="badge badge-verified" style="font-size: 1rem; padding: 0.4rem 1rem;">
+          ✓ Status: Approved
+        </span>
+      </div>
+      <div style="font-size: 1.25rem; font-weight: 700; color: var(--navy);">
+        ₹{{ "{:,.2f}".format(receipt.amount_base or 0.0) }} INR
+        {% if receipt.currency and receipt.currency != 'INR' %}
+          <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 400;">
+            ({{ "{:,.2f}".format(receipt.amount_original or 0.0) }} {{ receipt.currency }})
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Summary Details -->
+    <div class="bg-subtle-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; padding: 1.25rem; border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+      <div>
+        <div class="form-text">Claim ID</div>
+        <div style="font-weight: 600; font-size: 1rem;">#{{ receipt.id }}</div>
+      </div>
+      <div>
+        <div class="form-text">Employee</div>
+        <div style="font-weight: 600; font-size: 1rem;">{{ receipt.user_name }} ({{ receipt.employee_code }})</div>
+      </div>
+      <div>
+        <div class="form-text">Category</div>
+        <div style="font-weight: 600;">{{ receipt.category_user }}</div>
+      </div>
+      <div>
+        <div class="form-text">Merchant & Date</div>
+        <div style="font-weight: 600;">{{ receipt.merchant or '—' }} &bull; {{ receipt.issue_date or '—' }}</div>
+      </div>
+    </div>
+
+    <!-- Notice Box -->
+    <div style="background: var(--peach-50); border: 1px solid var(--border-card); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.5rem;">💳</span>
+        <div>
+          <div style="font-weight: 700; color: var(--navy); font-size: 1rem;">
+            Payment gateway integration coming soon (placeholder)
+          </div>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 0.25rem; margin-bottom: 0;">
+            This claim has been officially approved by the finance administrator and logged to the ledger. Direct bank transfer and corporate card settlement APIs are scheduled for upcoming release.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+      <a href="{{ url_for('admin_queue') }}" class="btn btn-secondary">
+        Back to review queue
+      </a>
+      <button type="button" class="btn btn-primary" disabled style="opacity: 0.55; cursor: not-allowed;">
+        Proceed to payment
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

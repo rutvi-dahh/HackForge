@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS extraction_cache (
 -- Default settings
 INSERT OR IGNORE INTO settings (key, value) VALUES
     ('BASE_CURRENCY',      'INR'),
-    ('HELPLINE_NUMBER',    'TBD'),
+    ('HELPLINE_NUMBER',    '1223334444'),
     ('CONF_THRESHOLD',     '0.7'),
     ('BANNED_THRESHOLD',   '0.7'),
     ('CITY_CONF_THRESHOLD','0.6');
