@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Receipt Graveyard{% endblock %} - Expense Reimbursement</title>
+  <title>{% block title %}Home{% endblock %} · {{ company_name }}</title>
+  <link rel="icon" href="{{ favicon_url }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -12,8 +13,16 @@
   <nav class="navbar">
 
     <a href="{{ url_for('index') }}" class="nav-brand">
-      <div class="brand-icon">🪦</div>
-      <span>Receipt Graveyard</span>
+      {% if logo_url %}
+        <img src="{{ logo_url }}" alt="{{ company_name }}" class="brand-logo-nav" width="32" height="32">
+      {% else %}
+        <svg class="brand-logo-nav" width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H19C20.1046 21 21 20.1046 21 19V5C21 3.89543 20.1046 3 19 3Z" fill="#F4D8C6" stroke="#002366" stroke-width="1.5"/>
+          <path d="M7 7H17M7 11H17M7 15H13" stroke="#002366" stroke-width="2" stroke-linecap="round"/>
+          <path d="M15 15C16.5 15 17.5 16.5 17 18C15.5 18 14.5 16.5 15 15Z" fill="#002366"/>
+        </svg>
+      {% endif %}
+      <span>{{ company_name }}</span>
     </a>
 
     <ul class="nav-links">
@@ -65,13 +74,13 @@
   {% block footer %}
   <footer class="footer">
     <div>
-      Receipt Graveyard &copy; 2026. Built with Python Flask, Groq Vision, and strict policy rule execution.
+      © {{ current_year }} {{ company_name }}
     </div>
-    <div style="margin-top: 0.4rem;">
-      <a href="{{ url_for('policy_page') }}">Policy v3</a> &bull;
-      <a href="{{ url_for('help_page') }}">Help Desk & Guidelines</a> &bull;
-      <span>Support Helpline: <strong>{{ helpline_number or '1223334444' }}</strong></span>
-    </div>
+    {% if not session.get('role') or session.get('role') != 'admin' %}
+      <div style="margin-top: 0.4rem;">
+        <span>Support Helpline: <strong>{{ helpline_number or '1223334444' }}</strong></span>
+      </div>
+    {% endif %}
   </footer>
   {% endblock %}
 </body>
