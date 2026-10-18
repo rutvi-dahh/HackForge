@@ -137,15 +137,19 @@ The rule engine follows a strict short-circuit evaluation order:
 - **Access Control on Media**: The `/uploads/<filename>` route verifies that the requester is either the receipt's owner or an active administrator before streaming bytes.
 - **Cardholder Masking**: All credit/debit card numbers detected in raw text, OCR streams, or extracted JSON are masked (`****-****-****-1234`) prior to database storage.
 - **Password Protection**: Passwords hashed using `pbkdf2:sha256` with unique salts.
-- **Approval vs Denial Governance**: Admin approvals require **no written note** (streamlined one-click approval). Denials **strictly require** a non-empty written reason captured in an in-page `#denyModal` popup. Every decision logs the admin ID and timestamp.
+- **Approval vs Denial Governance**: Admin approvals require explicit confirmation via `<dialog id="approveModal">` and redirect to the `/admin/payment/<id>` settlement placeholder. Denials **strictly require** a non-empty written reason captured in an in-page `#denyModal` popup. Every decision logs the admin ID and timestamp.
+- **Payment Placeholder Page**: Dedicated admin disbursement preview (`/admin/payment/<id>`) displaying claim settlement details, "Payment gateway integration coming soon" notice, disabled payment button, and strict 403 non-admin / non-approved redirect guards.
+- **Queue "By date" View**: Review queue supports a third "By date" tab (`?view=date`) presenting a flat table of all verified and flagged claims sorted by issue date newest first (with `uploaded_at DESC` tie-break).
 - **User Claim Deletion**: Employees can delete their own submitted expense claims at any time prior to reimbursement via `POST /receipts/<id>/delete`, backed by confirmation modals.
-- **In-Page Solid Modals**: Receipt preview, denial rationale, and deletion confirmations render inside high-contrast `<dialog>` modals with solid card styling (`#151d30`) and backdrop blur—never opening receipts in an external browser tab.
+- **In-Page Solid Modals**: Receipt preview, denial rationale, approval confirmation, and deletion dialogues render inside high-contrast `<dialog>` modals with solid card styling and backdrop blur—never opening receipts in an external browser tab.
+- **Employee Support Helpline**: Global helpline `1223334444` configured across database settings, `/help`, `/forgot-password`, and persistent footer of all user pages.
+- **Corporate Formal Light Theme**: Built with CSS variables (`--navy: #002366`, `--peach: #F4D8C6`, muted semantic status tokens) in `static/css/theme.css` without external CDNs, maintaining WCAG AA contrast.
 
 ---
 
 ## 🧪 Comprehensive Unit & Integration Tests
 
-The test suite contains **40 unit, integration, and smoke tests** verifying all business rules, edge cases, and endpoints:
+The test suite contains **47 unit, integration, and smoke tests** verifying all business rules, edge cases, and endpoints:
 
 ```bash
 # Run the complete test suite
@@ -158,9 +162,9 @@ pytest tests/ -v
 - **`tests/test_ledger.py`**: Cumulative monthly limit math (verifying ₹12,000 passes and 4th receipt of ₹4,000 pushes to ₹16,000 > ₹15,000 limit, triggering `LIMIT_MONTH`).
 - **`tests/test_currency.py`**: FX rate conversions, base currency recalculations, and rate overrides.
 - **`tests/test_verify.py`**: 3-way voting engine (User claim vs Vision Model vs Reader 2 OCR) across amounts, invoice IDs, and categories; handling missing reader values and provisional user inputs.
-- **`tests/test_auth.py`**: Password hashing, session control, employee vs admin privilege boundaries.
+- **`tests/test_auth.py`**: Password hashing, session control, Remember-me 30-day session cookies, `/forgot-password` route, login page elements (no social buttons), and employee vs admin privilege boundaries.
 - **`tests/test_flow.py`**: Complete lifecycle from employee upload, rule evaluation, single-query submission, to admin review and decision logging.
-- **`tests/test_smoke_routes.py`**: Complete HTTP route validation for employee and admin flows, missing field completion, receipt deletion, and CSV export.
+- **`tests/test_smoke_routes.py`**: Complete HTTP route validation for employee and admin flows, missing field completion, receipt deletion, approval redirection to payment placeholder (`/admin/payment/<id>`), payment 403 access control, queue `?view=date` sorting, helpline display, and CSV export.
 - **`tests/test_planted_oracle.py`**: Validates all 13 planted hackathon artifacts against their exact expected status.
 
 ---

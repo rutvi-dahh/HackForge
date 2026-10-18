@@ -74,3 +74,41 @@ def test_admin_can_access_admin_routes(client):
     res_rejected = client.get("/admin/rejected")
     assert res_rejected.status_code == 200
     assert b"Rejected Claims & Employee Queries" in res_rejected.data
+
+def test_login_page_elements(client):
+    """Test login page Remember me is checked, Forgot password link exists, and no signup/social buttons."""
+    res = client.get("/login")
+    assert res.status_code == 200
+    # Remember me box is present and checked by default
+    assert b'name="remember"' in res.data
+    assert b'checked' in res.data
+    # Forgot password link is present
+    assert b'href="/forgot-password"' in res.data
+    # No signup / social registration buttons
+    assert b"Sign up" not in res.data
+    assert b"Register" not in res.data
+    assert b"Google" not in res.data
+    assert b"GitHub" not in res.data
+    assert b"Create account" not in res.data
+
+def test_forgot_password_page_logged_out(client):
+    """Test /forgot-password returns 200 for unauthenticated users and shows default helpline."""
+    res = client.get("/forgot-password")
+    assert res.status_code == 200
+    assert b"1223334444" in res.data
+    assert b"Reset your password" in res.data
+
+def test_remember_me_session_cookie(client):
+    """Test login with remember me sets permanent session."""
+    # Login with remember=1
+    res = client.post("/login", data={
+        "email": "e1@company.com",
+        "password": "emp123",
+        "remember": "1"
+    })
+    assert res.status_code == 302
+    # Verify session cookie was set with Set-Cookie header
+    cookie_header = res.headers.get("Set-Cookie", "")
+    assert "session=" in cookie_header
+    assert "HttpOnly" in cookie_header
+    assert "SameSite=Lax" in cookie_header

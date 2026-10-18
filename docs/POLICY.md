@@ -171,7 +171,7 @@ A rejected receipt cannot be resubmitted.
 The employee may raise one query per rejected receipt: one message, no thread.
 The admin reviews each query personally, gives one response, and records uphold (a written reason is required) or overturn (no reason needed). An overturned receipt becomes Approved.
 Rejected receipts and queries appear in a separate admin tab.
-A Help page, linked at the bottom of every user page, shows the helpline number [TBD] and a user manual with the steps to claim reimbursement on the website. [Stretch] An AI chatbot answering from that manual only.
+A Help page, linked at the bottom of every user page, shows the employee support helpline number (1223334444) and a user manual with the steps to claim reimbursement on the website.
 15. Admin responsibilities
 A denial, and an upheld rejection, needs a written reason entered into a modal dialog. Approvals and overturns need none. Every decision records the admin and a timestamp.
 The admin sees all flag reasons beside the receipt, and opens the receipt in a high-contrast popup modal `<dialog>` on the same page with a solid background and backdrop blur (never in a new tab).
@@ -185,9 +185,9 @@ Keep the original model extraction alongside any employee correction.
 17. Exclusions and open items
 No approval threshold. Every verified or flagged receipt goes to the admin regardless of amount.
 Partial reimbursement of mixed receipts is out of scope.
-[TBD] Helpline number to display.
+Corporate helpline number: resolved and set to 1223334444.
 Education limits (25,000 per receipt, 50,000 per month) are suggestions pending confirmation.
-[TBD] Payout process, outside this system.
+[Placeholder] Payment disbursement process (handled via /admin/payment/<id> placeholder page).
 18. Assumptions
 The 15-day rule is a hard rejection for live uploads, and seeded data is exempt.
 Attendee count is required on every Food receipt; client name only when marked client-related.

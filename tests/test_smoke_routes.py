@@ -221,3 +221,59 @@ def test_employee_delete_receipt(client):
     r = c.post(f"/receipts/{info_id}/delete", follow_redirects=True)
     assert r.status_code == 200
     assert b"permanently deleted" in r.data
+
+
+def test_approve_redirects_to_payment_page(client):
+    c, ok_id, info_id, rej_id = client
+    login(c, "admin@test.com", "admin123")
+    r = c.post(f"/admin/receipt/{ok_id}/decide",
+               data={"decision": "approved", "reason": ""}, follow_redirects=False)
+    assert r.status_code == 302
+    assert f"/admin/payment/{ok_id}" in r.headers["Location"]
+
+
+def test_payment_page_access_and_guards(client):
+    c, ok_id, info_id, rej_id = client
+    # First ensure ok_id is approved
+    login(c, "admin@test.com", "admin123")
+    c.post(f"/admin/receipt/{ok_id}/decide", data={"decision": "approved"})
+
+    # Admin access approved payment page -> 200
+    r_admin = c.get(f"/admin/payment/{ok_id}")
+    assert r_admin.status_code == 200
+    assert b"Payment gateway integration coming soon (placeholder)" in r_admin.data
+    assert b"Proceed to payment" in r_admin.data
+    assert b"Back to review queue" in r_admin.data
+
+    # Admin access unapproved receipt -> redirects to /admin
+    r_unapproved = c.get(f"/admin/payment/{rej_id}", follow_redirects=False)
+    assert r_unapproved.status_code == 302
+    assert "/admin" in r_unapproved.headers["Location"]
+
+    # Employee access -> 403 Forbidden
+    login(c, "emp@test.com", "emp123")
+    r_emp = c.get(f"/admin/payment/{ok_id}")
+    assert r_emp.status_code == 403
+
+
+def test_admin_queue_view_date_sorted(client):
+    c, ok_id, info_id, rej_id = client
+    login(c, "admin@test.com", "admin123")
+    r = c.get("/admin?view=date")
+    assert r.status_code == 200
+    assert b"By date" in r.data
+    assert b"All Claims by Date (Newest First)" in r.data
+
+
+def test_help_and_footer_helpline_display(client):
+    c, ok_id, info_id, rej_id = client
+    # Unauthenticated /help page
+    r_help = c.get("/help")
+    assert r_help.status_code == 200
+    assert b"1223334444" in r_help.data
+
+    # Policy page footer contains helpline
+    r_policy = c.get("/policy")
+    assert r_policy.status_code == 200
+    assert b"1223334444" in r_policy.data
+
