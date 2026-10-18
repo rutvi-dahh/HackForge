@@ -8,7 +8,7 @@ Two-role web app. Employees upload receipts (JPG, PNG, PDF) and get instant poli
 
 Principle: AI reads, code decides. The vision model only extracts fields and tags items. Python rules decide every status. Nothing is guessed: unreadable or low-confidence data becomes Info needed or a flag. Extraction accuracy on new, unseen receipts is the main technical risk, so the pipeline in section 7 uses two independent readers, a second model pass and a measurable eval script.
 
-Stack: Flask, SQLite (SQLAlchemy or plain sqlite3), Jinja templates, plain CSS, small vanilla JS for popups only, no JS build step, PyMuPDF, Groq SDK, OpenCV (opencv-python-headless), pytesseract plus the Tesseract program (brew install tesseract on macOS), pytest. Base currency INR. Runs locally with python app.py. Do not target Vercel with SQLite (no persistent disk); Render or Railway only at the end.
+Stack: Flask (runs locally on port 5001 with python app.py, avoiding macOS AirPlay port 5000 conflicts), SQLite (SQLAlchemy or plain sqlite3), Jinja templates, plain CSS, small vanilla JS for popups only, no JS build step, PyMuPDF, Groq SDK, OpenCV (opencv-python-headless), pytesseract plus the Tesseract program (brew install tesseract on macOS), pytest. Base currency INR. Do not target Vercel with SQLite (no persistent disk); Render or Railway only at the end.
 
 Env vars: GROQ_API_KEY, GROQ_MODEL (vision), GROQ_MODEL_FALLBACK (optional second vision model), GROQ_TEXT_MODEL (city tiers), SECRET_KEY.
 
@@ -29,8 +29,10 @@ Seeded accounts only: 1 admin, 4 employees. Hashed passwords. Role checked serve
 Employee
 /login, /logout
 /upload: file; category (Food, Travel, Accommodation, Equipment, Education, Miscellaneous); claimed amount (required number, as printed on the receipt, in the receipt's currency); invoice number (optional); context (Trip or Office); attendee count (int >= 1, required for Food); "client-related" checkbox, which makes client name required. Submit runs the pipeline and shows the result page: status plus every reason in plain English.
-/receipts: own receipts with status and reasons, ordered by issue date, newest first. Info needed rows have a form for exactly the missing fields only (date, total, unique ID, currency, items, attendees, client). Saving re-runs the rules on the same record.
-/receipts/<id>: detail. If rejected and no query exists: one query form (single message). Shows the admin's response once given.
+/receipts: own receipts with status and reasons, ordered by issue date, newest first. Info needed rows have a form for exactly the missing fields only (date, total, unique ID, currency, items, attendees, client). Saving re-runs the rules on the same record. Quick delete button for each claim with confirmation.
+/receipts/<id>: detail. Delete claim button with confirmation dialog. If rejected and no query exists: one query form (single message). Shows the admin's response once given.
+/receipts/<id>/delete: POST route to delete own claim and associated files.
+
 /help: helpline number (config HELPLINE_NUMBER, placeholder until supplied) and a static user manual with the claim steps. Linked in the footer of every user page.
 Admin
 /admin: queue of status verified and flagged only. Default view groups by category. ?view=employee groups by employee. Within every group, rows are ordered by issue date, newest first (null dates last; ties by upload time, newest first). Duplicate groups render together at their original's position, original first, labeled "original". Every row has a "Review" button; all Review buttons share one CSS class .btn-review with fixed width (120px) and height (36px). Row columns: employee name and code, issue date, amount in base currency, category, status, flag count.
@@ -195,15 +197,18 @@ Blank invoice	info_needed
 At the end the seed script prints each planted case with its actual status.
 
 9. Tests
-pytest per rule: just under, exactly at, and just over each limit.
-Ledger: out-of-order issue dates, and excluded statuses.
+Complete test suite with 40 passing tests across 9 test modules:
+pytest per rule: just under, exactly at, and just over each limit; late upload 15-day cutoff; banned items.
+Ledger: out-of-order issue dates, cumulative monthly limit calculations, and excluded statuses.
 Duplicates: across image and PDF; earliest upload is not flagged DUPLICATE, the later one is, even if the original was rejected.
 Currency: MYR and USD conversion, stored rate. FX: refresh stores rates for all currencies; failure keeps the last rates; any supported ISO currency converts.
 Role: employee gets 403 on admin routes.
 Ordering: admin and employee lists are newest issue date first, null dates last.
 Decisions: approve works with no reason; deny and uphold are rejected without a reason.
+Smoke routes: comprehensive test coverage for all employee and admin HTTP endpoints, missing field resolution, and user claim deletion.
 City tier: the model is called once per city; the second lookup hits the cache; API failure or low confidence gives Tier C and CITY_UNCLEAR.
 Verification: wrong typed amount is flagged; reader 2 None causes no flag; two readers agreeing against the user is flagged; no majority gives EXTRACTION_UNCERTAIN; accepted amount equals the receipt value in every case; a single-reader category disagreement does not flag; when no reader finds an amount, the typed value is used and EXTRACTION_UNCERTAIN is set.
+Planted oracle: all 13 planted hackathon cases evaluated against expected outcomes.
 Extraction eval (scripts/eval_extraction.py): run the full pipeline on sample_data and compare with gold_labels.csv and planted/manifest.csv; print per-field accuracy (date, total, unique ID, currency, city, category) and list failures. Invoice PDFs have a text layer, so compare model output with parsed text for invoice number, date, total, and city. Hand-label 30 to 40 receipt photos (date, total, merchant) and report accuracy. Re-run after any extraction change.
 10. Build phases (stop after each for review; commit; update PROGRESS.md)
 Phase	Work	Owner	Done when

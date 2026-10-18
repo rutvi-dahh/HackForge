@@ -35,6 +35,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "receipt-graveyard-secret-key-hackathon-2026")
 app.config["UPLOAD_FOLDER"] = str(UPLOAD_FOLDER)
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024  # 15 MB limit
+app.config["PERMANENT_SESSION_LIFETIME"] = datetime.timedelta(days=30)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 # Ensure database and initial data exist on startup
 init_db()
@@ -51,13 +54,14 @@ def index():
         if session.get("role") == "admin":
             return redirect(url_for("admin_queue"))
         return redirect(url_for("employee_receipts"))
-    return redirect(url_for("login"))
+    return render_template("login.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        remember = request.form.get("remember")
 
         db = get_db()
         user = db.execute("SELECT * FROM users WHERE lower(email) = ?", (email,)).fetchone()
@@ -69,14 +73,20 @@ def login():
             session["email"] = user["email"]
             session["role"] = user["role"]
             session["employee_code"] = user["employee_code"]
+            session.permanent = bool(remember)
             flash(f"Welcome back, {user['name']}!", "success")
             if user["role"] == "admin":
                 return redirect(url_for("admin_queue"))
             return redirect(url_for("employee_receipts"))
         else:
-            flash("Invalid email or password. Please try again.", "danger")
+            flash("Invalid email or password", "danger")
 
     return render_template("login.html")
+
+@app.route("/forgot-password")
+def forgot_password():
+    helpline = get_setting("HELPLINE_NUMBER", "1223334444")
+    return render_template("forgot_password.html", helpline_number=helpline)
 
 @app.route("/logout")
 def logout():

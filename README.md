@@ -23,13 +23,14 @@ Every policy decision records:
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| **Backend** | Python 3.9+ / Flask | Lightweight, deterministic execution, zero runtime bloat |
+| **Backend** | Python 3.9+ / Flask | Lightweight, deterministic execution, runs on port 5001 (avoids macOS AirPlay port 5000 conflicts) |
 | **Database** | SQLite3 (`WAL` mode) | Zero-setup, atomic ACID transactions, foreign keys enforced |
 | **Frontend** | Jinja2 Server-Rendered HTML + Vanilla CSS | Zero build step (`npm`/Webpack free), instant hot-reloading |
-| **Aesthetics** | Dark Glassmorphism Design System | Inter font, glowing state badges, dynamic side panels, mobile-ready |
-| **AI / OCR** | Groq API (`llama-3.2-11b-vision-preview`) | High-speed structured JSON extraction with image resize & Pydantic validation |
-| **PDF Extraction** | PyMuPDF (`fitz`) | Direct text-layer extraction for digital invoices; auto-renders scanned PDFs to image |
-| **Offline Cache** | SQLite `extraction_cache` (SHA-256) | Instant offline demonstrations of all planted test receipts without API keys |
+| **Aesthetics** | Dark Glassmorphism Design System | Inter font, glowing state badges, solid modal backgrounds (`#151d30`), mobile-ready |
+| **AI / OCR** | OpenCV + Tesseract 5.5.3 + Groq Vision | Dual-pass LLM (`meta-llama/llama-4-scout-17b-16e-instruct` & fallback) + Reader 2 (Tesseract with 2x upscale, adaptive threshold, deskew) + structured heuristic fallback for 100% live offline extraction |
+| **PDF Extraction** | PyMuPDF (`fitz`) | Direct text-layer extraction for digital invoices; auto-renders scanned PDFs to image for OCR |
+| **Live Currency** | Open Exchange Rates API (`open.er-api.com`) | Live daily FX rates for 160+ world currencies, cached 24h with Admin refresh button & offline fallback |
+| **Offline Cache** | SQLite `extraction_cache` (SHA-256) | Instant offline demonstrations of planted test receipts without API keys |
 
 ---
 
@@ -67,7 +68,7 @@ python seed.py
 python app.py
 ```
 Open your browser and navigate to:
-👉 **`http://127.0.0.1:5000`**
+👉 **`http://127.0.0.1:5001`**
 
 ---
 
@@ -129,20 +130,22 @@ The rule engine follows a strict short-circuit evaluation order:
 
 ---
 
-## 🔒 Security & Role-Based Access Control
+## 🔒 Security, Auditability & Role-Based Access Control
 
-- **Server-Side Enforcement**: `@login_required` and `@admin_required` decorators verify session token and role on every route.
+- **Server-Side Enforcement**: `@login_required` and `@admin_required` decorators verify session token and role on every route (employees receive 403 on admin paths).
 - **Isolated File Storage**: Uploaded receipt media are stored in a dedicated `uploads/` directory located *outside* the public web root.
 - **Access Control on Media**: The `/uploads/<filename>` route verifies that the requester is either the receipt's owner or an active administrator before streaming bytes.
-- **Cardholder Masking**: All credit/debit card numbers detected in raw text or extracted JSON are masked (`****-****-****-1234`) prior to database storage.
+- **Cardholder Masking**: All credit/debit card numbers detected in raw text, OCR streams, or extracted JSON are masked (`****-****-****-1234`) prior to database storage.
 - **Password Protection**: Passwords hashed using `pbkdf2:sha256` with unique salts.
-- **Immutable Audit Trail**: Every admin approval, rejection, or category override records the administrator's ID, timestamp, and mandatory written rationale.
+- **Approval vs Denial Governance**: Admin approvals require **no written note** (streamlined one-click approval). Denials **strictly require** a non-empty written reason captured in an in-page `#denyModal` popup. Every decision logs the admin ID and timestamp.
+- **User Claim Deletion**: Employees can delete their own submitted expense claims at any time prior to reimbursement via `POST /receipts/<id>/delete`, backed by confirmation modals.
+- **In-Page Solid Modals**: Receipt preview, denial rationale, and deletion confirmations render inside high-contrast `<dialog>` modals with solid card styling (`#151d30`) and backdrop blur—never opening receipts in an external browser tab.
 
 ---
 
 ## 🧪 Comprehensive Unit & Integration Tests
 
-The test suite contains 21 unit and integration tests verifying all edge cases:
+The test suite contains **40 unit, integration, and smoke tests** verifying all business rules, edge cases, and endpoints:
 
 ```bash
 # Run the complete test suite
@@ -150,12 +153,14 @@ pytest tests/ -v
 ```
 
 ### Coverage Highlights:
-- **`tests/test_rules.py`**: Just-under and just-over limit thresholds, 15-day late upload boundary at day 15 (allowed) vs day 16 (rejected), banned item confidence thresholding.
-- **`tests/test_duplicates.py`**: Hash duplicates, unique ID matches, merchant+date+amount matches, and grouping into clusters with original identification.
+- **`tests/test_rules.py`**: Just-under, exactly at, and just-over limit thresholds; 15-day late upload boundary at day 15 (allowed) vs day 16 (rejected); banned item confidence thresholding (alcohol, tobacco, fines).
+- **`tests/test_duplicates.py`**: SHA-256 hash duplicates, unique invoice ID matches, merchant+date+amount matches, and grouping into clusters where the earliest upload is marked original and later copies are flagged.
 - **`tests/test_ledger.py`**: Cumulative monthly limit math (verifying ₹12,000 passes and 4th receipt of ₹4,000 pushes to ₹16,000 > ₹15,000 limit, triggering `LIMIT_MONTH`).
 - **`tests/test_currency.py`**: FX rate conversions, base currency recalculations, and rate overrides.
+- **`tests/test_verify.py`**: 3-way voting engine (User claim vs Vision Model vs Reader 2 OCR) across amounts, invoice IDs, and categories; handling missing reader values and provisional user inputs.
 - **`tests/test_auth.py`**: Password hashing, session control, employee vs admin privilege boundaries.
 - **`tests/test_flow.py`**: Complete lifecycle from employee upload, rule evaluation, single-query submission, to admin review and decision logging.
+- **`tests/test_smoke_routes.py`**: Complete HTTP route validation for employee and admin flows, missing field completion, receipt deletion, and CSV export.
 - **`tests/test_planted_oracle.py`**: Validates all 13 planted hackathon artifacts against their exact expected status.
 
 ---
@@ -165,22 +170,24 @@ pytest tests/ -v
 As instructed by the hackathon specification, all implementation assumptions and defaults are listed below:
 
 1. **Base Currency**: The system base currency defaults to Indian Rupee (`INR`) per the specification. Administrators can change the base currency (e.g., to `USD` or `MYR`) on the Admin Settings page.
-2. **Static FX Rates**: In accordance with the "no real FX API" constraint, exchange rates are stored in a database table (`USD=83.0`, `MYR=18.5`) and can be updated by administrators. The rate and conversion date are stamped permanently on each converted receipt.
+2. **Live Daily FX Rates**: Integrated with `https://open.er-api.com/v6/latest/{BASE}` covering 160+ world currencies, cached daily in the database with an Admin "Refresh rates" button (carrying required "Rates By Exchange Rate API" attribution) and resilient offline fallback rates.
 3. **15-Day Late Upload Window**: Calculated strictly as `(upload_date - issue_date).days > 15`. Seeded demo receipts are flagged with `is_seeded=1` and exempted so historic demo data remains intact, except for `old_receipt.png` which is seeded with `is_seeded=0` specifically to test this rule.
-4. **Confidence Threshold**: Set to `0.70` (configurable in `config/policy.json`). Any core field extracted with confidence below `0.70` automatically classifies the claim as `INFO_NEEDED`.
+4. **Confidence Threshold**: Set to `0.70` (configurable in `config/policy.json` and admin settings). Any core field extracted with confidence below `0.70` automatically classifies the claim as `INFO_NEEDED`.
 5. **Attendee-Based Food Limits**: Daily and per-receipt food limits scale linearly with the number of reported attendees: `effective_limit = tier_limit * attendees`.
 6. **Round Total Flag**: Totals that are exact integers divisible by 100 in base currency without itemized penny variance trigger `SUSPICIOUS_ROUND_TOTAL` as a soft flag for admin review, but never auto-reject.
-7. **Single Query Policy**: Employees can submit exactly one query per rejected receipt. The administrator's response either upholds the rejection or overturns it to `VERIFIED`.
+7. **Single Query Policy**: Employees can submit exactly one query per rejected receipt. The administrator's response either upholds the rejection (requires written reason) or overturns it to `VERIFIED` / `APPROVED`.
 8. **Duplicate Grouping**: Earliest uploaded receipt with matching parameters is marked as the cluster original; subsequent uploads are flagged as `DUPLICATE_FILE`, `DUPLICATE_ID`, or `DUPLICATE_TRIPLET`.
-9. **PIN / Postal Code Fallback**: Cities not recognized by name or alias are cross-referenced with `cities.json` PIN codes; otherwise mapped to `Tier C` with a `CITY_UNCLEAR` flag.
+9. **Dynamic Model-Classified City Tiers**: Cities are classified via Groq model prompt rubric into Tier A/B/C and cached in SQLite `city_tiers`. Unrecognized cities, missing locations, or confidence below 0.6 default safely to Tier C with a `CITY_UNCLEAR` flag.
+10. **Receipt Ordering & Review Buttons**: Receipts in the review queue and claims list are sorted by issue date (newest first, nulls last, ties by upload time DESC). All admin Review buttons share a standardized `.btn-review` class with fixed dimensions (120px × 36px).
+11. **Employee Claim Deletion**: Employees have full self-service rights to delete their own submitted claims prior to reimbursement via `POST /receipts/<id>/delete`.
 
 ---
 
 ## ⚖️ Honest Limitations
 
-1. **Offline Mode vs Live Extraction**: The offline cache stores deterministic extractions for the 13 planted files. If an un-cached image is uploaded without a valid `GROQ_API_KEY`, the application fails gracefully by marking the receipt as `INFO_NEEDED` with an explicit reason (`"Groq API key not configured or extraction failed"`).
-2. **Scanned PDF Fallback**: Digital PDFs with embedded font layers are read directly via PyMuPDF. Scanned image PDFs without text layers are converted to 150 DPI PNGs in memory and processed by Groq Vision. Extremely degraded handwriting or water-damaged receipts may yield low item confidence (`items_readable: false`), correctly stopping at `INFO_NEEDED`.
-3. **Static FX Rates**: Foreign currency conversion uses the static internal rates table rather than a live financial ticker.
+1. **Dual Extraction (Live & Offline)**: The offline cache stores deterministic extractions for all 13 planted hackathon files. When new receipts are uploaded without a `GROQ_API_KEY`, the application seamlessly falls back to the local OpenCV + Tesseract 5.5.3 preprocessing pipeline and structured heuristic parser, accurately extracting merchant, date, invoice number, city, country, currency, total, tax, nights, line items (with banned item detection), and category live!
+2. **Scanned PDF Fallback**: Digital PDFs with embedded font layers are read directly via PyMuPDF. Scanned image PDFs without text layers are converted to 150 DPI PNGs in memory and processed by Tesseract OCR and Groq Vision. Extremely degraded handwriting or water-damaged receipts yield low item confidence (`items_readable: false`), correctly stopping at `INFO_NEEDED`.
+3. **FX Attribution & Rate Staleness**: Foreign currency conversion uses the cached live rates from Open Exchange Rates API. If an external network outage occurs, the last stored rates are used with offline seed fallbacks.
 4. **Scope Boundaries**: Per the prompt's out-of-scope directives, external payment disbursements, enterprise SSO / SAML, WhatsApp / email receipt forwarding, line-item partial approvals, and custom OCR model training are excluded.
 
 ---

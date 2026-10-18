@@ -27,6 +27,8 @@ A receipt must be uploaded within 15 days of its issue date. Day 15 is valid. La
 Accepted formats: JPG, PNG, PDF.
 The same receipt must not be submitted twice, in any format or channel.
 The document must be a genuine receipt or invoice for a payment the employee made.
+Claim deletion: Employees may permanently delete their own submitted receipts/claims at any time before reimbursement (via POST /receipts/<id>/delete). Deletion permanently purges the database record, audit associations, and stored media file.
+
 5. Required information
 
 From the receipt (extracted; if unreadable, the employee is asked, nothing is guessed): issue date, unique ID, total amount and currency. Merchant, city, and items are also extracted. If the item list is unreadable, or only a total is shown, the receipt is flagged Items unclear instead of rejected.
@@ -171,9 +173,10 @@ The admin reviews each query personally, gives one response, and records uphold 
 Rejected receipts and queries appear in a separate admin tab.
 A Help page, linked at the bottom of every user page, shows the helpline number [TBD] and a user manual with the steps to claim reimbursement on the website. [Stretch] An AI chatbot answering from that manual only.
 15. Admin responsibilities
-A denial, and an upheld rejection, needs a written reason. Approvals and overturns need none. Every decision records the admin and a timestamp.
-The admin sees all flag reasons beside the receipt, and opens the receipt in a popup on the same page.
-Views: by category (default) or by employee. Within each view, receipts are ordered by issue date, newest first.
+A denial, and an upheld rejection, needs a written reason entered into a modal dialog. Approvals and overturns need none. Every decision records the admin and a timestamp.
+The admin sees all flag reasons beside the receipt, and opens the receipt in a high-contrast popup modal `<dialog>` on the same page with a solid background and backdrop blur (never in a new tab).
+All review buttons share a standardized fixed-size class `.btn-review` (120px × 36px).
+Views: by category (default) or by employee. Within each view, receipts are ordered by issue date, newest first (null dates last; ties by upload time, newest first).
 The admin sets the base currency and can refresh the exchange rates.
 16. Data handling
 Mask card numbers (keep the last 4 digits) in stored and displayed text.
@@ -198,3 +201,4 @@ The limit values in Section 9 are suggested starting points, not benchmarked fig
 The reimbursable amount is always the receipt's value, never the typed one, except when no reader finds a value (then the typed value is provisional and flagged).
 Invoice number entry is optional. If blank, only the model and the second reading are compared.
 City tiers are classified once by the model, then cached. The admin can override any stored tier.
+Employees can delete their own submitted expense claims at any time before reimbursement.
