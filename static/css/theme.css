@@ -658,8 +658,8 @@ dialog::backdrop {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 150px;
-  height: 150px;
+  width: 180px;
+  height: 180px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -738,7 +738,7 @@ dialog::backdrop {
 /* Desktop layout (>= 900px): Two columns, Left = Login Card, Right = Brand Panel */
 @media (min-width: 900px) {
   .landing-grid {
-    grid-template-columns: minmax(380px, 440px) minmax(380px, 480px);
+    grid-template-columns: minmax(380px, 440px) minmax(380px, 520px);
     grid-template-areas: "card brand";
     gap: 4.5rem;
   }
@@ -749,9 +749,9 @@ dialog::backdrop {
   }
 
   .landing-logo-container {
-    width: 220px;
-    height: 220px;
-    margin-bottom: 1.75rem;
+    width: 290px;
+    height: 290px;
+    margin-bottom: 2rem;
     padding: 0;
   }
 
