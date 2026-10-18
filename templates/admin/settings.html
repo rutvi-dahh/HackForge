@@ -50,6 +50,12 @@
         <div class="form-text">Vision-capable model name used for live extraction.</div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label" for="groq_api_key">Groq API Key (Optional)</label>
+        <input type="password" id="groq_api_key" name="groq_api_key" class="form-control" value="{{ settings.GROQ_API_KEY or '' }}" placeholder="gsk_...">
+        <div class="form-text">Used for live Groq vision model extraction and city tier classification. When omitted, OpenCV + Tesseract OCR model extracts details live.</div>
+      </div>
+
       <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">
         Save System Settings
       </button>
@@ -58,17 +64,25 @@
 
   <!-- FX Rates Management -->
   <div class="card">
-    <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1.25rem;">
-      Static Exchange Rates (to {{ settings.BASE_CURRENCY }})
-    </h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">
+        Exchange Rates (Base: {{ settings.BASE_CURRENCY }})
+      </h2>
+      <form method="POST" action="{{ url_for('admin_refresh_fx_rates') }}" style="margin: 0;">
+        <button type="submit" class="btn btn-primary btn-sm">
+          🔄 Refresh Rates
+        </button>
+      </form>
+    </div>
 
-    <div class="table-responsive" style="margin-bottom: 1.5rem;">
+    <div class="table-responsive" style="margin-bottom: 1.5rem; max-height: 380px; overflow-y: auto;">
       <table class="table">
         <thead>
           <tr>
             <th>Currency</th>
-            <th style="text-align: right;">Rate to {{ settings.BASE_CURRENCY }}</th>
-            <th>Effective Set Date</th>
+            <th style="text-align: right;">Rate to 1 {{ settings.BASE_CURRENCY }}</th>
+            <th>Fetched / Set Date</th>
+            <th>Source</th>
           </tr>
         </thead>
         <tbody>
@@ -76,13 +90,20 @@
             <tr>
               <td style="font-weight: 700;">{{ fx.currency }}</td>
               <td style="text-align: right; font-weight: 600; color: #34d399;">
-                {{ fx.rate_to_inr }}
+                {{ "%.4f"|format(fx.rate_to_base) if fx.rate_to_base is not none else fx.rate_to_inr }}
               </td>
-              <td>{{ fx.set_date }}</td>
+              <td>{{ fx.fetched_at or fx.set_date }}</td>
+              <td><span class="badge badge-secondary" style="font-size: 0.7rem;">{{ fx.source or 'manual' }}</span></td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <div style="margin-bottom: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+      <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener" style="color: var(--primary); text-decoration: underline;">
+        Rates By Exchange Rate API
+      </a>
     </div>
 
     <!-- Update / Add FX Rate Form -->

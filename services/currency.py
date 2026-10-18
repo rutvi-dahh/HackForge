@@ -66,3 +66,58 @@ def convert_to_base(amount, currency, db=None):
 
     amount_base = round(float(amount) * rate, 2)
     return amount_base, rate, set_date, None
+
+def refresh_live_fx_rates(base="INR", db=None):
+    """
+    Fetches live exchange rates from https://open.er-api.com/v6/latest/{BASE}.
+    Stores units of currency per 1 base, inverted as rate_to_base.
+    Returns (count_updated, error_message).
+    """
+    import urllib.request
+    import json
+    import datetime
+
+    base_upper = (base or "INR").upper()
+    url = f"https://open.er-api.com/v6/latest/{base_upper}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ReceiptGraveyard/1.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("result") != "success":
+                return 0, f"API returned non-success: {data.get('error-type')}"
+
+            rates = data.get("rates", {})
+            today_str = datetime.date.today().isoformat()
+
+            close_db = False
+            if db is None:
+                from database.db import get_db
+                db = get_db()
+                close_db = True
+
+            count = 0
+            for curr, rate_val in rates.items():
+                try:
+                    r_val = float(rate_val)
+                    if r_val <= 0:
+                        continue
+                    rate_to_base = 1.0 if curr == base_upper else round(1.0 / r_val, 6)
+                    db.execute(
+                        """INSERT INTO fx_rates (currency, base, rate_to_base, fetched_at, source)
+                           VALUES (?, ?, ?, ?, 'api')
+                           ON CONFLICT(currency, base) DO UPDATE SET
+                               rate_to_base = excluded.rate_to_base,
+                               fetched_at = excluded.fetched_at,
+                               source = excluded.source""",
+                        (curr.upper(), base_upper, rate_to_base, today_str)
+                    )
+                    count += 1
+                except Exception:
+                    continue
+
+            db.commit()
+            if close_db:
+                db.close()
+            return count, None
+    except Exception as e:
+        return 0, str(e)

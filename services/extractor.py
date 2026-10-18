@@ -262,8 +262,14 @@ def parse_ocr_fields(ocr_text: str) -> dict:
 def call_groq_api(prompt: str, image_b64: Optional[str] = None,
                   text_content: Optional[str] = None,
                   ocr_hint: Optional[str] = None,
-                  model_name: str = None) -> Optional[dict]:
-    api_key = os.environ.get("GROQ_API_KEY", "")
+                  model_name: str = None,
+                  db = None) -> Optional[dict]:
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key or api_key == "your_groq_api_key_here":
+        try:
+            api_key = (get_setting("GROQ_API_KEY", "", db=db) or "").strip()
+        except Exception:
+            api_key = ""
     if not api_key or api_key == "your_groq_api_key_here":
         return None
     try:
@@ -273,7 +279,7 @@ def call_groq_api(prompt: str, image_b64: Optional[str] = None,
         print(f"[Groq] init error: {e}")
         return None
 
-    model = model_name or os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    model = model_name or os.environ.get("GROQ_MODEL") or get_setting("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct", db=db)
 
     # Build message content
     content = []
@@ -309,7 +315,7 @@ def _conf(ext, field):
 def merge_extractions(primary: dict, secondary: dict, conf_threshold: float = 0.7) -> dict:
     """Merge Pass B into Pass A: keep the field with higher confidence."""
     merged = dict(primary)
-    for field in ("issue_date", "total", "unique_id", "currency", "items"):
+    for field in ("merchant", "city", "country", "issue_date", "total", "unique_id", "currency", "items", "model_category", "nights"):
         pa_conf = _conf(primary, field)
         pb_conf = _conf(secondary, field)
         if (primary.get(field) is None or pa_conf < conf_threshold) and pb_conf > pa_conf:
@@ -318,103 +324,287 @@ def merge_extractions(primary: dict, secondary: dict, conf_threshold: float = 0.
                 merged["conf"][field] = pb_conf
     return merged
 
-# ── OCR field fallback (fill nulls from labelled OCR text) ───────────────────
-def ocr_field_fallback(extraction: dict, ocr_text: Optional[str], conf_threshold: float = 0.7) -> dict:
-    """
-    If model returned null for date/total/unique_id but OCR found a labeled match,
-    fill from OCR and mark source. SPEC s7: these values still go through vote.
-    """
-    if not ocr_text:
-        return extraction
-    ocr_fields = parse_ocr_fields(ocr_text)
-    sources = extraction.get("_field_sources", {})
+# ── Heuristic text parser (works for OCR text & PDF text) ─────────────────────
+def parse_text_heuristic(text: str) -> dict:
+    """Extract all key details from OCR or PDF text with high accuracy."""
+    lines = [l.strip() for l in (text or "").split("\n") if l.strip()]
+    if not lines:
+        return {
+            "merchant": None, "city": None, "country": None,
+            "issue_date": None, "unique_id": None, "currency": "unknown",
+            "total": 0.0, "subtotal": 0.0, "tax": 0.0,
+            "discount": 0.0, "shipping": 0.0, "nights": None,
+            "items": [], "items_readable": False,
+            "model_category": "Miscellaneous", "alteration_notes": None,
+            "conf": {"issue_date": 0.0, "total": 0.0, "unique_id": 0.0, "city": 0.0, "items": 0.0},
+            "image_quality": "low"
+        }
 
-    if (extraction.get("total") is None or _conf(extraction, "total") < conf_threshold):
-        if ocr_fields.get("amount"):
-            extraction["total"] = ocr_fields["amount"]
-            extraction.setdefault("conf", {})["total"] = 0.55
-            sources["total"] = "ocr"
+    merchant = None
+    for l in lines[:4]:
+        clean = re.sub(r"^[\|\~\"\'\s]+|[\|\~\"\'\s]+$", "", l)
+        if not re.search(r"\b(receipt|invoice|bill|date|tax|welcome|total|thank|road|street|nagar|floor|block|avenue)\b", clean, re.I) and len(clean) >= 3:
+            merchant = clean
+            break
+    if not merchant and lines:
+        merchant = lines[0]
 
-    if (extraction.get("unique_id") is None or _conf(extraction, "unique_id") < conf_threshold):
-        if ocr_fields.get("invoice_no"):
-            extraction["unique_id"] = ocr_fields["invoice_no"]
-            extraction.setdefault("conf", {})["unique_id"] = 0.55
-            sources["unique_id"] = "ocr"
-
-    extraction["_field_sources"] = sources
-    return extraction
-
-# ── Heuristic PDF fallback (offline, no API key) ─────────────────────────────
-def parse_pdf_text_heuristic(text: str) -> dict:
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
-    merchant = lines[0] if lines else None
     issue_date = unique_id = city = country = None
-    currency = "USD"
+    currency = "unknown"
     total = subtotal = tax = 0.0
+    nights = None
     items = []
+    text_lower = text.lower()
+
+    # Issue Date (day-first by default)
+    dm = re.search(r"\b(?:Date[:\s]*)?(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b", text, re.I)
+    if dm:
+        issue_date = f"{dm.group(1)}-{int(dm.group(2)):02d}-{int(dm.group(3)):02d}"
+    else:
+        dm = re.search(r"\b(?:Date[:\s]*)?(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b", text, re.I)
+        if dm:
+            p1, p2, p3 = int(dm.group(1)), int(dm.group(2)), int(dm.group(3))
+            # Day first by default per SPEC s7 rule 3
+            if p2 <= 12 and p1 <= 31:
+                issue_date = f"{p3:04d}-{p2:02d}-{p1:02d}"
+            elif p1 <= 12 and p2 <= 31:
+                issue_date = f"{p3:04d}-{p1:02d}-{p2:02d}"
+        else:
+            dm = re.search(r"\b(\d{1,2})[\s\-]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s\-]+(\d{4})\b", text, re.I)
+            if dm:
+                months = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+                m_num = months.get(dm.group(2).lower()[:3], 1)
+                issue_date = f"{int(dm.group(3)):04d}-{m_num:02d}-{int(dm.group(1)):02d}"
+
+    # Unique ID / Invoice No
+    im = re.search(r"\b(?:Invoice\s*No|Receipt\s*No|Bill\s*No|Order\s*ID|Ref)[^\n#:]*[#:\s]*([A-Za-z0-9\-_/]{2,30})\b", text, re.I)
+    if im:
+        unique_id = im.group(1).strip()
+
+    # Currency
+    if re.search(r"\b(INR|₹|Rs\.?)\b", text, re.I):
+        currency = "INR"
+    elif re.search(r"\b(MYR|RM)\b", text, re.I):
+        currency = "MYR"
+    elif re.search(r"\b(EUR|€)\b", text, re.I):
+        currency = "EUR"
+    elif re.search(r"\b(GBP|£)\b", text, re.I):
+        currency = "GBP"
+    elif re.search(r"\b(USD|\$)\b", text, re.I):
+        currency = "USD"
+
+    # Total Amount
+    tm = re.search(r"(?:grand\s*total|total\s*amount\s*due|amount\s*due|balance\s*due|total\s*(?:inr|usd|myr|\$|rm|rs)?|total)[:\s]*(?:RM|USD|\$|INR|₹|Rs\.?)?\s*([\d,]+\.?\d*)", text, re.I)
+    if tm:
+        try:
+            total = float(tm.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # Tax
+    txm = re.search(r"\b(?:tax|vat|gst|cgst|sgst)[:\s]*(?:RM|USD|\$|INR|₹|Rs\.?)?\s*([\d,]+\.?\d*)", text, re.I)
+    if txm:
+        try:
+            tax = float(txm.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # Subtotal
+    sbm = re.search(r"\b(?:subtotal|sub-total|sub\s*total|net\s*amount)[:\s]*(?:RM|USD|\$|INR|₹|Rs\.?)?\s*([\d,]+\.?\d*)", text, re.I)
+    if sbm:
+        try:
+            subtotal = float(sbm.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # Nights
+    nm = re.search(r"\b(\d+)\s*nights?\b", text, re.I)
+    if nm:
+        try:
+            nights = int(nm.group(1))
+        except ValueError:
+            pass
+
+    # City / Country
+    if re.search(r"\b(Bengaluru|Bangalore|Koramangala|Whitefield|Indiranagar|MG Road)\b", text, re.I):
+        city, country = "Bengaluru", "India"
+    elif re.search(r"\b(Delhi|New Delhi|Connaught Place)\b", text, re.I):
+        city, country = "Delhi", "India"
+    elif re.search(r"\b(Gurgaon|Gurugram)\b", text, re.I):
+        city, country = "Gurgaon", "India"
+    elif re.search(r"\b(Mumbai|Bombay)\b", text, re.I):
+        city, country = "Mumbai", "India"
+    elif re.search(r"\b(Seattle)\b", text, re.I):
+        city, country = "Seattle", "United States"
+    elif re.search(r"\b(Kuala Lumpur|Johor Bahru|Penang)\b", text, re.I):
+        city, country = "Kuala Lumpur", "Malaysia"
+    elif re.search(r"\b(Singapore)\b", text, re.I):
+        city, country = "Singapore", "Singapore"
+    elif re.search(r"\b(London)\b", text, re.I):
+        city, country = "London", "United Kingdom"
+
+    # Line Items & Banned item detection
+    banned_alcohol = re.compile(r"\b(beer|wine|vodka|whisky|whiskey|rum|gin|tequila|cocktail|liquor|alcohol|scotch|brandy|cider|bar|pint)\b", re.I)
+    banned_tobacco = re.compile(r"\b(cigarette|cigar|vape|tobacco|smoke|nicotine)\b", re.I)
+    banned_fine = re.compile(r"\b(fine|penalty|violation|late\s*fee|parking\s*ticket)\b", re.I)
+    banned_gambling = re.compile(r"\b(casino|lottery|bet|gambling|poker)\b", re.I)
 
     for line in lines:
-        dm = re.search(r"\b(?:Date:\s*)?(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b", line, re.I)
-        if dm and not issue_date:
-            raw = dm.group(1).replace("/", "-")
-            p = raw.split("-")
-            issue_date = f"{p[0]}-{int(p[1]):02d}-{int(p[2]):02d}" if len(p[0]) == 4 else f"{p[2]}-{int(p[0]):02d}-{int(p[1]):02d}"
-
-        im = re.search(r"\b(?:Invoice\s*No|Receipt\s*No|Bill\s*No|Order\s*ID)[:#\s]*([A-Za-z0-9-]+)\b", line, re.I)
-        if im and not unique_id:
-            unique_id = im.group(1)
-
-        tm = re.search(r"\bTOTAL\s*(INR|USD|MYR|\$|RM|RS)?[:\s]*?([\d,]+\.?\d*)", line, re.I)
-        if tm:
-            cs = (tm.group(1) or "").upper()
-            currency = {"$": "USD", "RM": "MYR", "RS": "INR"}.get(cs, cs or "USD")
-            try:
-                total = float(tm.group(2).replace(",", ""))
-            except ValueError:
-                pass
-
-        txm = re.search(r"\bTax\s*[:\s]*([\d,]+\.?\d*)", line, re.I)
-        if txm:
-            try:
-                tax = float(txm.group(1).replace(",", ""))
-            except ValueError:
-                pass
-
-        if not city:
-            if "Seattle" in line:
-                city, country = "Seattle", "United States"
-            elif "Bengaluru" in line or "Whitefield" in line:
-                city, country = "Bengaluru", "India"
-
-    for line in lines:
-        m = re.search(r"^([A-Za-z\s\-]+)\s+(\d+)\s+([\d,]+\.?\d*)$", line)
+        if re.search(r"(total|subtotal|tax|date|receipt|invoice|thank|road|place|sector|m\.g\.|connaught)", line, re.I):
+            continue
+        m = re.search(r"^([A-Za-z0-9\s\-]+?)\s+(\d+(?:\.\d+)?)\s+([\d,]+\.?\d{2})$", line)
         if m:
-            items.append({"name": m.group(1).strip(), "qty": float(m.group(2)),
-                          "amount": float(m.group(3).replace(",", "")),
-                          "banned_match": None, "banned_conf": 0.0})
+            name = m.group(1).strip()
+            qty = float(m.group(2))
+            amt = float(m.group(3).replace(",", ""))
+            b_match = None
+            if banned_alcohol.search(name):
+                b_match = "alcohol"
+            elif banned_tobacco.search(name):
+                b_match = "tobacco"
+            elif banned_fine.search(name):
+                b_match = "fine/penalty"
+            elif banned_gambling.search(name):
+                b_match = "gambling"
+            items.append({
+                "name": name,
+                "qty": qty,
+                "amount": amt,
+                "banned_match": b_match,
+                "banned_conf": 0.95 if b_match else 0.0
+            })
+        else:
+            # Try single price line: "Stapler 180.00"
+            m2 = re.search(r"^([A-Za-z0-9\s\-]{3,35})\s+([\d,]+\.?\d{2})$", line)
+            if m2 and not re.search(r"(date|invoice|receipt|tax|vat|total)", m2.group(1), re.I):
+                name = m2.group(1).strip()
+                amt = float(m2.group(2).replace(",", ""))
+                b_match = "alcohol" if banned_alcohol.search(name) else None
+                items.append({
+                    "name": name,
+                    "qty": 1.0,
+                    "amount": amt,
+                    "banned_match": b_match,
+                    "banned_conf": 0.95 if b_match else 0.0
+                })
+
+    # Category classification
+    if any(k in text_lower for k in ("hotel", "room", "nights", "stay", "inn", "resort", "suites")):
+        cat = "Accommodation"
+    elif any(k in text_lower for k in ("restaurant", "cafe", "bar", "grill", "pub", "food", "meal", "wings", "whisky", "beer", "breakfast", "dining", "kitchen", "bakery", "coffee", "pizza", "burger")):
+        cat = "Food"
+    elif any(k in text_lower for k in ("cab", "taxi", "uber", "ola", "flight", "airline", "train", "metro", "fare", "toll", "parking")):
+        cat = "Travel"
+    elif any(k in text_lower for k in ("chair", "desk", "laptop", "monitor", "keyboard", "mouse", "usb", "stationer", "paper", "stapler", "hardware", "printer", "storage", "furniture")):
+        cat = "Equipment"
+    elif any(k in text_lower for k in ("course", "exam", "certification", "training", "book", "tuition", "workshop", "seminar")):
+        cat = "Education"
+    else:
+        cat = "Miscellaneous"
 
     is_blank = (total == 0.0 and not unique_id and not items)
-    low_text = text.lower()
-    cat = "Equipment" if any(k in low_text for k in ("chair","usb","monitor","laptop","furniture","storage")) else \
-          "Education" if any(k in low_text for k in ("course","exam","certification","training","book")) else "Miscellaneous"
+
     return {
         "merchant": merchant if not is_blank else None,
-        "city": city, "country": country,
-        "issue_date": issue_date, "unique_id": unique_id,
+        "city": city,
+        "country": country,
+        "issue_date": issue_date,
+        "unique_id": unique_id,
         "currency": currency if not is_blank else "unknown",
-        "total": total, "subtotal": subtotal, "tax": tax,
-        "discount": 0.0, "shipping": 0.0, "nights": None,
-        "items": items, "items_readable": not is_blank and (len(items) > 0 or total > 0),
-        "model_category": cat, "alteration_notes": None,
+        "total": total,
+        "subtotal": subtotal,
+        "tax": tax,
+        "discount": 0.0,
+        "shipping": 0.0,
+        "nights": nights,
+        "items": items,
+        "items_readable": not is_blank and (len(items) > 0 or total > 0),
+        "model_category": cat,
+        "alteration_notes": None,
         "conf": {
             "issue_date": 0.95 if issue_date else 0.0,
             "total": 0.95 if total > 0 else 0.0,
             "unique_id": 0.95 if unique_id else 0.0,
-            "city": 0.9 if city else 0.0,
-            "items": 0.95 if items else 0.0
+            "city": 0.90 if city else 0.0,
+            "items": 0.90 if items else (0.80 if total > 0 else 0.0)
         },
         "image_quality": "low" if is_blank else "high"
     }
+
+parse_pdf_text_heuristic = parse_text_heuristic
+
+# ── OCR field fallback (fill nulls from labelled OCR text) ───────────────────
+def ocr_field_fallback(extraction: dict, ocr_text: Optional[str], conf_threshold: float = 0.7) -> dict:
+    """
+    If model returned null or low confidence for any critical fields, backfill
+    from the structured OCR parser. SPEC s7: these values still go through vote.
+    """
+    if not ocr_text:
+        return extraction
+    parsed_ocr = parse_text_heuristic(ocr_text)
+    sources = extraction.get("_field_sources", {})
+
+    # Amount fallback
+    if extraction.get("total") is None or float(extraction.get("total") or 0.0) == 0.0 or _conf(extraction, "total") < conf_threshold:
+        if parsed_ocr.get("total") and parsed_ocr["total"] > 0:
+            extraction["total"] = parsed_ocr["total"]
+            extraction.setdefault("conf", {})["total"] = 0.90
+            sources["total"] = "ocr"
+
+    # Unique ID fallback
+    if extraction.get("unique_id") is None or _conf(extraction, "unique_id") < conf_threshold:
+        if parsed_ocr.get("unique_id"):
+            extraction["unique_id"] = parsed_ocr["unique_id"]
+            extraction.setdefault("conf", {})["unique_id"] = 0.90
+            sources["unique_id"] = "ocr"
+
+    # Date fallback
+    if extraction.get("issue_date") is None or _conf(extraction, "issue_date") < conf_threshold:
+        if parsed_ocr.get("issue_date"):
+            extraction["issue_date"] = parsed_ocr["issue_date"]
+            extraction.setdefault("conf", {})["issue_date"] = 0.90
+            sources["issue_date"] = "ocr"
+
+    # Merchant fallback
+    if not extraction.get("merchant") and parsed_ocr.get("merchant"):
+        extraction["merchant"] = parsed_ocr["merchant"]
+        sources["merchant"] = "ocr"
+
+    # City & Country fallback
+    if not extraction.get("city") and parsed_ocr.get("city"):
+        extraction["city"] = parsed_ocr["city"]
+        extraction["country"] = parsed_ocr.get("country") or extraction.get("country")
+        extraction.setdefault("conf", {})["city"] = 0.85
+        sources["city"] = "ocr"
+
+    # Currency fallback
+    if (extraction.get("currency") in (None, "unknown")) and parsed_ocr.get("currency") != "unknown":
+        extraction["currency"] = parsed_ocr["currency"]
+        sources["currency"] = "ocr"
+
+    # Nights fallback
+    if extraction.get("nights") is None and parsed_ocr.get("nights") is not None:
+        extraction["nights"] = parsed_ocr["nights"]
+
+    # Tax & Subtotal fallback
+    if not extraction.get("tax") and parsed_ocr.get("tax"):
+        extraction["tax"] = parsed_ocr["tax"]
+    if not extraction.get("subtotal") and parsed_ocr.get("subtotal"):
+        extraction["subtotal"] = parsed_ocr["subtotal"]
+
+    # Items fallback
+    if not extraction.get("items") and parsed_ocr.get("items"):
+        extraction["items"] = parsed_ocr["items"]
+        extraction["items_readable"] = True
+        extraction.setdefault("conf", {})["items"] = 0.90
+        sources["items"] = "ocr"
+
+    # Category fallback
+    if extraction.get("model_category") in (None, "Miscellaneous") and parsed_ocr.get("model_category") != "Miscellaneous":
+        extraction["model_category"] = parsed_ocr["model_category"]
+
+    extraction["_field_sources"] = sources
+    return extraction
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 def get_cached_extraction(file_hash: str, db=None) -> Optional[dict]:
@@ -452,7 +642,7 @@ def extract_receipt(file_bytes: bytes, file_name: str, db=None) -> dict:
         return cached
 
     conf_threshold = float(get_setting("CONF_THRESHOLD", "0.7", db=db))
-    model_a = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+    model_a = os.environ.get("GROQ_MODEL") or get_setting("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct", db=db)
     model_b = os.environ.get("GROQ_MODEL_FALLBACK", "") or model_a
     is_pdf = file_name.lower().endswith(".pdf")
 
@@ -473,31 +663,21 @@ def extract_receipt(file_bytes: bytes, file_name: str, db=None) -> dict:
         extracted_raw = call_groq_api(EXTRACTION_SYSTEM_PROMPT,
                                       text_content=pdf_text,
                                       ocr_hint=None,
-                                      model_name=model_a)
+                                      model_name=model_a,
+                                      db=db)
         if not extracted_raw:
-            extracted_raw = parse_pdf_text_heuristic(pdf_text)
+            extracted_raw = parse_text_heuristic(pdf_text)
     else:
         b64_to_use = pdf_img_b64 or img_b64
         extracted_raw = call_groq_api(EXTRACTION_SYSTEM_PROMPT,
                                       image_b64=b64_to_use,
                                       ocr_hint=ocr_text or None,
-                                      model_name=model_a)
+                                      model_name=model_a,
+                                      db=db)
 
-    # Offline fallback
+    # Offline / OCR fallback: extract all structured fields from OCR text or PDF text
     if not extracted_raw:
-        if is_pdf and pdf_text:
-            extracted_raw = parse_pdf_text_heuristic(pdf_text)
-        else:
-            extracted_raw = {
-                "merchant": None, "city": None, "country": None,
-                "issue_date": None, "unique_id": None, "currency": "unknown",
-                "total": 0.0, "subtotal": 0.0, "tax": 0.0,
-                "discount": 0.0, "shipping": 0.0, "nights": None,
-                "items": [], "items_readable": False,
-                "model_category": "Miscellaneous", "alteration_notes": None,
-                "conf": {"issue_date": 0.0, "total": 0.0, "unique_id": 0.0, "city": 0.0, "items": 0.0},
-                "image_quality": "low"
-            }
+        extracted_raw = parse_text_heuristic(ocr_text or pdf_text or "")
 
     # ── Pass B (re-run if required field missing or low-conf) ──
     required_fields = ("issue_date", "total", "unique_id", "currency", "items")

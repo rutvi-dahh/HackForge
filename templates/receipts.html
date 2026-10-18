@@ -51,15 +51,20 @@
                 </span>
               </td>
               <td>
-                <a href="{{ url_for('employee_receipt_detail', receipt_id=r.id) }}" class="btn btn-sm btn-secondary">
-                  {% if r.status == 'info_needed' %}
-                    Resolve Info
-                  {% elif r.status == 'rejected' %}
-                    View / Query
-                  {% else %}
-                    View Details
-                  {% endif %}
-                </a>
+                <div style="display: flex; gap: 0.35rem; align-items: center;">
+                  <a href="{{ url_for('employee_receipt_detail', receipt_id=r.id) }}" class="btn btn-sm btn-secondary">
+                    {% if r.status == 'info_needed' %}
+                      Resolve Info
+                    {% elif r.status == 'rejected' %}
+                      View / Query
+                    {% else %}
+                      View Details
+                    {% endif %}
+                  </a>
+                  <button type="button" class="btn btn-sm btn-danger" title="Delete Claim" onclick="openDeleteModal('{{ r.id }}')">
+                    🗑
+                  </button>
+                </div>
               </td>
             </tr>
           {% endfor %}
@@ -75,4 +80,33 @@
     </div>
   {% endif %}
 </div>
+
+<!-- Quick Delete Confirmation Modal (Solid background) -->
+<dialog id="listDeleteModal" style="max-width: 480px; width: 90vw; background: #151d30; border: 1px solid #f43f5e; border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9);">
+  <form method="POST" id="listDeleteForm" action="">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
+      <h3 style="margin: 0; color: #f43f5e; font-size: 1.15rem;" id="listDeleteTitle">Delete Expense Claim</h3>
+      <button type="button" class="btn btn-secondary" style="padding: 0.2rem 0.5rem;" onclick="document.getElementById('listDeleteModal').close()">✕</button>
+    </div>
+    <p style="font-size: 0.95rem; color: var(--text-main); margin-bottom: 0.75rem;">
+      Are you sure you want to delete this expense claim?
+    </p>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+      This will permanently remove the receipt, uploaded file, and any associated audit history. This action cannot be undone.
+    </p>
+    <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('listDeleteModal').close()">Cancel</button>
+      <button type="submit" class="btn btn-danger">Confirm Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+function openDeleteModal(receiptId) {
+  var form = document.getElementById('listDeleteForm');
+  form.action = '/receipts/' + receiptId + '/delete';
+  document.getElementById('listDeleteTitle').innerText = 'Delete Expense Claim #' + receiptId;
+  document.getElementById('listDeleteModal').showModal();
+}
+</script>
 {% endblock %}

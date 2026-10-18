@@ -203,3 +203,21 @@ def test_admin_settings_update_no_500(client):
                data={"currency": "MYR", "rate_to_inr": "18.5", "set_date": "2026-01-01"},
                follow_redirects=True)
     assert r.status_code != 500, f"500 on settings update: {r.data[:300]}"
+
+
+def test_admin_approval_without_reason(client):
+    c, ok_id, info_id, rej_id = client
+    login(c, "admin@test.com", "admin123")
+    # Approving with no reason provided
+    r = c.post(f"/admin/receipt/{ok_id}/decide",
+               data={"decision": "approve", "reason": ""}, follow_redirects=True)
+    assert r.status_code == 200
+
+
+def test_employee_delete_receipt(client):
+    c, ok_id, info_id, rej_id = client
+    login(c, "emp@test.com", "emp123")
+    # Delete own receipt
+    r = c.post(f"/receipts/{info_id}/delete", follow_redirects=True)
+    assert r.status_code == 200
+    assert b"permanently deleted" in r.data

@@ -432,6 +432,43 @@ def employee_submit_query(receipt_id):
     flash("Your clarification query has been sent to the finance administrator.", "success")
     return redirect(url_for("employee_receipt_detail", receipt_id=receipt_id))
 
+@app.route("/receipts/<int:receipt_id>/delete", methods=["POST"])
+@login_required
+def employee_delete_receipt(receipt_id):
+    """Allows user (or admin) to delete an expense claim."""
+    db = get_db()
+    receipt = db.execute("SELECT * FROM receipts WHERE id = ?", (receipt_id,)).fetchone()
+    if not receipt:
+        db.close()
+        abort(404)
+
+    # Permission check: employee can delete their own receipts; admin can delete any receipt
+    if receipt["user_id"] != session["user_id"] and session.get("role") != "admin":
+        db.close()
+        abort(403)
+
+    # Delete physical file if it exists
+    file_path = receipt["file_path"]
+    if file_path:
+        try:
+            p = Path(file_path)
+            if p.exists():
+                p.unlink()
+        except Exception as e:
+            print(f"[Delete] file removal warning: {e}")
+
+    # Remove all related records from DB
+    db.execute("DELETE FROM queries WHERE receipt_id = ?", (receipt_id,))
+    db.execute("DELETE FROM decisions WHERE receipt_id = ?", (receipt_id,))
+    db.execute("DELETE FROM receipts WHERE id = ?", (receipt_id,))
+    db.commit()
+    db.close()
+
+    flash(f"Claim #{receipt_id} has been permanently deleted.", "success")
+    if session.get("role") == "admin":
+        return redirect(url_for("admin_queue"))
+    return redirect(url_for("employee_receipts"))
+
 @app.route("/receipts/<int:receipt_id>/file")
 @login_required
 def view_receipt_file(receipt_id):
@@ -708,13 +745,17 @@ def admin_update_settings():
     helpline = request.form.get("helpline_number", "+91 800-422-4467").strip()
     conf_thr = request.form.get("conf_threshold", "0.7").strip()
     banned_thr = request.form.get("banned_threshold", "0.7").strip()
-    groq_mod = request.form.get("groq_model", "llama-3.2-11b-vision-preview").strip()
+    groq_mod = request.form.get("groq_model", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+    groq_key = request.form.get("groq_api_key", "").strip()
 
     set_setting("BASE_CURRENCY", base_curr, db=db)
     set_setting("HELPLINE_NUMBER", helpline, db=db)
     set_setting("CONF_THRESHOLD", conf_thr, db=db)
     set_setting("BANNED_THRESHOLD", banned_thr, db=db)
     set_setting("GROQ_MODEL", groq_mod, db=db)
+    if groq_key:
+        set_setting("GROQ_API_KEY", groq_key, db=db)
+        os.environ["GROQ_API_KEY"] = groq_key
 
     db.close()
     flash("System settings successfully updated.", "success")
@@ -752,6 +793,20 @@ def admin_update_fx_rate():
     db.close()
 
     flash(f"Exchange rate for {currency}/{base} updated to {rate_val}.", "success")
+    return redirect(url_for("admin_settings"))
+
+@app.route("/admin/settings/refresh_fx", methods=["POST"])
+@admin_required
+def admin_refresh_fx_rates():
+    from services.currency import refresh_live_fx_rates
+    db = get_db()
+    base = get_setting("BASE_CURRENCY", "INR", db=db)
+    count, err = refresh_live_fx_rates(base=base, db=db)
+    db.close()
+    if err:
+        flash(f"Could not refresh live rates: {err}. Preserving last stored rates.", "warning")
+    else:
+        flash(f"Successfully refreshed {count} live exchange rates against {base} from Exchange Rate API.", "success")
     return redirect(url_for("admin_settings"))
 
 @app.route("/admin/export/csv")

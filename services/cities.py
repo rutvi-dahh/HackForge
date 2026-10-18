@@ -100,7 +100,13 @@ def get_cached_tier(city_name: str, country: Optional[str] = None, db: Optional[
 
 def classify_city_with_model(city_name: str, country: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Calls Groq text model with the city tier rubric."""
-    api_key = os.environ.get("GROQ_API_KEY", "")
+    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not api_key or api_key == "your_groq_api_key_here":
+        try:
+            from database.db import get_setting
+            api_key = (get_setting("GROQ_API_KEY") or "").strip()
+        except Exception:
+            api_key = ""
     if not api_key or api_key == "your_groq_api_key_here":
         return None
 

@@ -26,7 +26,7 @@
   </div>
 </div>
 
-<dialog id="receiptModal" style="max-width: 90vw; max-height: 90vh; width: 850px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+<dialog id="receiptModal" style="max-width: 90vw; max-height: 90vh; width: 850px; background: #151d30; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9);">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.75rem;">
     <h3 style="margin: 0; font-size: 1.15rem;">Receipt File #{{ receipt.id }}</h3>
     <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem;" onclick="document.getElementById('receiptModal').close()">✕ Close</button>
@@ -152,7 +152,7 @@
         Administrator Decision
       </h3>
       <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 1.25rem;">
-        Approve needs no reason. Deny opens a popup asking for the reason of rejection.
+        Click Approve to approve immediately. Rejection opens a required reason popup.
       </p>
 
       <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}" id="decisionForm">
@@ -170,11 +170,6 @@
           <div class="form-text">You may reclassify this expense if the employee incorrectly categorized it.</div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="reason">Written Notes (Optional for Approval)</label>
-          <textarea id="reason" name="reason" class="form-control" rows="2" placeholder="Optional audit explanation..."></textarea>
-        </div>
-
         <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
           <button type="submit" name="decision" value="approved" class="btn btn-success" style="flex: 1;">
             ✓ Approve Claim
@@ -185,8 +180,8 @@
         </div>
       </form>
 
-      <!-- Deny Reason Modal Dialog -->
-      <dialog id="denyModal" style="max-width: 500px; width: 90vw; background: var(--bg-card); border: 1px solid #f43f5e; border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);">
+      <!-- Deny Reason Modal Dialog (Solid background, reason required only for rejection) -->
+      <dialog id="denyModal" style="max-width: 500px; width: 90vw; background: #151d30; border: 1px solid #f43f5e; border-radius: var(--radius-lg); padding: 1.5rem; color: #fff; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9);">
         <form method="POST" action="{{ url_for('admin_decide_receipt', receipt_id=receipt.id) }}">
           <input type="hidden" name="decision" value="denied">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem;">
