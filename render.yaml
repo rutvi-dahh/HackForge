@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: receipt-graveyard
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: SEED_ON_BOOT
+        value: "1"
+      - key: COOKIE_SECURE
+        value: "1"

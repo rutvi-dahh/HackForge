@@ -1,4 +1,5 @@
 import os
+from deploy_support import configure_for_deploy
 import io
 import csv
 import json
@@ -898,6 +899,8 @@ def admin_export_csv():
         headers={"Content-Disposition": "attachment; filename=approved_expenses_export.csv"}
     )
 
+configure_for_deploy(app)
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5001))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(host="127.0.0.1", port=int(os.environ.get("PORT", 5001)), debug=False)
+

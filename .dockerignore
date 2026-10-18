@@ -1,0 +1,14 @@
+.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+*.db
+*.db-wal
+*.db-shm
+.pytest_cache/
+.DS_Store
+# full datasets are NOT part of the image (keep only small sample_data/)
+data/
+archive.zip
+*.zip
